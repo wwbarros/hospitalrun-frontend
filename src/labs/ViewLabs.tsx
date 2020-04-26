@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react'
+import React, { useState, useEffect, useCallback } from 'react'
 import useTitle from 'page-header/useTitle'
 import { useTranslation } from 'react-i18next'
 import format from 'date-fns/format'
@@ -6,6 +6,7 @@ import { useButtonToolbarSetter } from 'page-header/ButtonBarProvider'
 import { Button } from '@hospitalrun/components'
 import { useHistory } from 'react-router'
 import LabRepository from 'clients/db/LabRepository'
+import SortRequest from 'clients/db/SortRequest'
 import Lab from 'model/Lab'
 import { useSelector } from 'react-redux'
 import Permissions from 'model/Permissions'
@@ -20,30 +21,47 @@ const ViewLabs = () => {
   const { permissions } = useSelector((state: RootState) => state.user)
   const [labs, setLabs] = useState<Lab[]>([])
 
-  const getButtons = () => {
+  const getButtons = useCallback(() => {
     const buttons: React.ReactNode[] = []
 
     if (permissions.includes(Permissions.RequestLab)) {
       buttons.push(
-        <Button icon="add" onClick={() => history.push('/labs/new')} outlined color="success">
+        <Button
+          icon="add"
+          onClick={() => history.push('/labs/new')}
+          outlined
+          color="success"
+          key="lab.requests.new"
+        >
           {t('labs.requests.new')}
         </Button>,
       )
     }
 
     return buttons
-  }
-
-  setButtons(getButtons())
+  }, [permissions, history, t])
 
   useEffect(() => {
     const fetch = async () => {
-      const fetchedLabs = await LabRepository.findAll()
+      const sortRequest: SortRequest = {
+        sorts: [
+          {
+            field: 'requestedOn',
+            direction: 'desc',
+          },
+        ],
+      }
+      const fetchedLabs = await LabRepository.findAll(sortRequest)
       setLabs(fetchedLabs)
     }
 
+    setButtons(getButtons())
     fetch()
-  }, [])
+
+    return () => {
+      setButtons([])
+    }
+  }, [getButtons, setButtons])
 
   const onTableRowClick = (lab: Lab) => {
     history.push(`/labs/${lab.id}`)

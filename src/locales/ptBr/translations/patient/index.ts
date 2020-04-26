@@ -1,5 +1,6 @@
 export default {
   patient: {
+    code: 'Código do paciente',
     firstName: 'Nome',
     lastName: 'Sobrenome',
     suffix: 'Sufixo',
@@ -25,18 +26,29 @@ export default {
     relatedPerson: 'Pessoa Relacionada',
     relatedPersons: {
       error: {
+        unableToAddRelatedPerson: 'Impossibilidade de adicionar nova pessoa relacionadas.',
         relatedPersonRequired: 'Pessoa relacionada é necessária.',
         relationshipTypeRequired: 'Tipo de relacionamento é necessário.',
       },
       label: 'Pessoas Relacionadas',
       new: 'Nova Pessoa Relacionada',
+      add: 'Addicione Pessoa Relacionada',
       relationshipType: 'Tipo de Relacionamento',
+      warning: {
+        noRelatedPersons: 'Sem pessoas relacionadas',
+      },
+      addRelatedPersonAbove: 'Addicione uma pessoa relacionada utilizando o botão acima.',
+    },
+    appointments: {
+      new: 'Adicionar um compromisso',
     },
     allergies: {
       label: 'Alergias',
+      allergyName: 'Nome da Alergia',
       new: 'Adicionar alergia',
       error: {
         nameRequired: 'Nome da alergia é necessário.',
+        unableToAdd: 'Impossibilidade de adicionar alergia.',
       },
       warning: {
         noAllergies: 'Sem alergias',
@@ -59,15 +71,28 @@ export default {
       addDiagnosisAbove: 'Adicione um diagnóstico utilizando o botão acima.',
       successfullyAdded: 'Um novo diagnóstico foi adicionado com sucesso!',
     },
+    note: 'Nota',
+    notes: {
+      label: 'Notas',
+      new: 'Adicionar novas notas',
+      warning: {
+        noNotes: 'Sem Notas',
+      },
+      error: {
+        noteRequired: 'Uma nota é necessário.',
+        unableToAdd: 'Impossibilidade adicionar uma nova nota.',
+      },
+      addNoteAbove: 'Adicione uma nota utilizando o botão acima.',
+    },
     types: {
       charity: 'Caridade',
       private: 'Particular',
     },
     errors: {
-      patientGivenNameRequiredOnCreate: 'Nome do Paciente é necessário.',
-      // todo Portuguese translation
-      patientGivenNameRequiredOnUpdate: '',
-      patientGivenNameFeedback: '',
+      createPatientError: 'Não foi possível criar um paciente.',
+      updatePatientError: 'Não foi possível atualizar o paciente',
+      patientGivenNameFeedback: 'Nome do Paciente é necessário.',
+      patientDateOfBirthFeedback: 'Data de Nascimento não pode ser maior que hoje.',
     },
   },
 }
