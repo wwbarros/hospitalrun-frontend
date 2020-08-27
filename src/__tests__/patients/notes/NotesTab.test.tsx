@@ -1,28 +1,26 @@
-import '../../../__mocks__/matchMediaMock'
-import React from 'react'
-import PatientRepository from 'clients/db/PatientRepository'
-import Note from 'model/Note'
-import { createMemoryHistory } from 'history'
-import configureMockStore from 'redux-mock-store'
-import Patient from 'model/Patient'
-import thunk from 'redux-thunk'
-import { mount } from 'enzyme'
-import { Router } from 'react-router'
-import { Provider } from 'react-redux'
-import NoteTab from 'patients/notes/NoteTab'
 import * as components from '@hospitalrun/components'
+import { mount } from 'enzyme'
+import { createMemoryHistory } from 'history'
+import React from 'react'
 import { act } from 'react-dom/test-utils'
-import { mocked } from 'ts-jest/utils'
-import NewNoteModal from 'patients/notes/NewNoteModal'
-import Permissions from '../../../model/Permissions'
-import * as patientSlice from '../../../patients/patient-slice'
+import { Provider } from 'react-redux'
+import { Router } from 'react-router-dom'
+import createMockStore from 'redux-mock-store'
+import thunk from 'redux-thunk'
+
+import NoteTab from '../../../patients/notes/NoteTab'
+import PatientRepository from '../../../shared/db/PatientRepository'
+import Note from '../../../shared/model/Note'
+import Patient from '../../../shared/model/Patient'
+import Permissions from '../../../shared/model/Permissions'
+import { RootState } from '../../../shared/store'
 
 const expectedPatient = {
   id: '123',
   notes: [{ date: new Date().toISOString(), text: 'notes1' } as Note],
 } as Patient
 
-const mockStore = configureMockStore([thunk])
+const mockStore = createMockStore<RootState, any>([thunk])
 const history = createMemoryHistory()
 
 let user: any
@@ -30,7 +28,7 @@ let store: any
 
 const setup = (patient = expectedPatient, permissions = [Permissions.WritePatients]) => {
   user = { permissions }
-  store = mockStore({ patient, user })
+  store = mockStore({ patient, user } as any)
   const wrapper = mount(
     <Router history={history}>
       <Provider store={store}>
@@ -74,33 +72,6 @@ describe('Notes Tab', () => {
       wrapper.update()
 
       expect(wrapper.find(components.Modal).prop('show')).toBeTruthy()
-    })
-
-    it('should update the patient with the new diagnosis when the save button is clicked', async () => {
-      const expectedNote = {
-        text: 'note text',
-        date: new Date().toISOString(),
-      } as Note
-      const expectedUpdatedPatient = {
-        ...expectedPatient,
-        notes: [...(expectedPatient.notes as any), expectedNote],
-      } as Patient
-
-      const mockedPatientRepository = mocked(PatientRepository, true)
-      mockedPatientRepository.saveOrUpdate.mockResolvedValue(expectedUpdatedPatient)
-
-      const wrapper = setup()
-
-      await act(async () => {
-        const modal = wrapper.find(NewNoteModal)
-        await modal.prop('onSave')(expectedNote)
-      })
-
-      expect(mockedPatientRepository.saveOrUpdate).toHaveBeenCalledWith(expectedUpdatedPatient)
-      expect(store.getActions()).toContainEqual(patientSlice.updatePatientStart())
-      expect(store.getActions()).toContainEqual(
-        patientSlice.updatePatientSuccess(expectedUpdatedPatient),
-      )
     })
   })
 

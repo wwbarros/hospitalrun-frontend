@@ -1,16 +1,17 @@
-import React, { useState } from 'react'
-import { useHistory } from 'react-router'
-import { useTranslation } from 'react-i18next'
-import { useDispatch } from 'react-redux'
 import { Button, Toast } from '@hospitalrun/components'
+import React, { useState } from 'react'
+import { useDispatch, useSelector } from 'react-redux'
+import { useHistory } from 'react-router-dom'
 
-import { parseISO } from 'date-fns'
+import useAddBreadcrumbs from '../../page-header/breadcrumbs/useAddBreadcrumbs'
+import useTitle from '../../page-header/title/useTitle'
+import useTranslator from '../../shared/hooks/useTranslator'
+import Patient from '../../shared/model/Patient'
+import { RootState } from '../../shared/store'
 import GeneralInformation from '../GeneralInformation'
-import useTitle from '../../page-header/useTitle'
-import Patient from '../../model/Patient'
 import { createPatient } from '../patient-slice'
-import { getPatientName } from '../util/patient-name-util'
-import useAddBreadcrumbs from '../../breadcrumbs/useAddBreadcrumbs'
+import { isPossibleDuplicatePatient } from '../util/is-possible-duplicate-patient'
+import DuplicateNewPatientModal from './DuplicateNewPatientModal'
 
 const breadcrumbs = [
   { i18nKey: 'patients.label', location: '/patients' },
@@ -18,20 +19,22 @@ const breadcrumbs = [
 ]
 
 const NewPatient = () => {
-  const { t } = useTranslation()
+  const { t } = useTranslator()
   const history = useHistory()
   const dispatch = useDispatch()
+  const { createError } = useSelector((state: RootState) => state.patient)
+  const { patients } = Object(useSelector((state: RootState) => state.patients))
 
   const [patient, setPatient] = useState({} as Patient)
-  const [errorMessage, setErrorMessage] = useState('')
-  const [invalidFields, setInvalidFields] = useState({
-    givenName: false,
-    dateOfBirth: false,
-  })
-  const [feedbackFields, setFeedbackFields] = useState({
-    givenName: '',
-    dateOfBirth: '',
-  })
+  const [duplicatePatient, setDuplicatePatient] = useState<Patient | undefined>(undefined)
+  const [showDuplicateNewPatientModal, setShowDuplicateNewPatientModal] = useState<boolean>(false)
+
+  const testPatient = {
+    givenName: 'Kelly',
+    familyName: 'Clark',
+    sex: 'female',
+    dateOfBirth: '1963-01-09T05:00:00.000Z',
+  } as Patient
 
   useTitle(t('patients.newPatient'))
   useAddBreadcrumbs(breadcrumbs, true)
@@ -49,80 +52,66 @@ const NewPatient = () => {
     )
   }
 
-  const validateInput = () => {
-    let inputIsValid = true
-
-    if (!patient.givenName) {
-      inputIsValid = false
-      setErrorMessage(t('patient.errors.createPatientError'))
-      setInvalidFields((prevState) => ({
-        ...prevState,
-        givenName: true,
-      }))
-      setFeedbackFields((prevState) => ({
-        ...prevState,
-        givenName: t('patient.errors.patientGivenNameFeedback'),
-      }))
-    }
-    if (patient.dateOfBirth) {
-      if (parseISO(patient.dateOfBirth) > new Date(Date.now())) {
-        inputIsValid = false
-        setErrorMessage(t('patient.errors.createPatientError'))
-        setInvalidFields((prevState) => ({
-          ...prevState,
-          dateOfBirth: true,
-        }))
-        setFeedbackFields((prevState) => ({
-          ...prevState,
-          dateOfBirth: t('patient.errors.patientDateOfBirthFeedback'),
-        }))
-      }
-    }
-    return inputIsValid
-  }
-
   const onSave = () => {
-    if (validateInput()) {
-      dispatch(
-        createPatient(
-          {
-            ...patient,
-            fullName: getPatientName(patient.givenName, patient.familyName, patient.suffix),
-          },
-          onSuccessfulSave,
-        ),
+    let duplicatePatients = []
+    if (patients !== undefined) {
+      duplicatePatients = patients.filter((existingPatient: any) =>
+        isPossibleDuplicatePatient(patient, existingPatient),
       )
     }
+
+    if (duplicatePatients.length > 0) {
+      setShowDuplicateNewPatientModal(true)
+      setDuplicatePatient(duplicatePatients as Patient)
+    } else {
+      dispatch(createPatient(patient, onSuccessfulSave))
+    }
+
+    const testCase = [isPossibleDuplicatePatient(patient, testPatient)]
+    if (testCase.length > 0) {
+      return true
+    }
+    return false
   }
 
-  const onFieldChange = (key: string, value: string | boolean) => {
-    setPatient({
-      ...patient,
-      [key]: value,
-    })
-    setErrorMessage('')
+  const onPatientChange = (newPatient: Partial<Patient>) => {
+    setPatient(newPatient as Patient)
+  }
+
+  const createDuplicateNewPatient = () => {
+    dispatch(createPatient(patient, onSuccessfulSave))
+  }
+
+  const closeDuplicateNewPatientModal = () => {
+    setShowDuplicateNewPatientModal(false)
   }
 
   return (
     <div>
       <GeneralInformation
-        isEditable
         patient={patient}
-        onFieldChange={onFieldChange}
-        errorMessage={errorMessage}
-        invalidFields={invalidFields}
-        feedbackFields={feedbackFields}
+        isEditable
+        onChange={onPatientChange}
+        error={createError}
       />
       <div className="row float-right">
         <div className="btn-group btn-group-lg mt-3">
-          <Button className="mr-2" color="success" onClick={onSave}>
+          <Button className="btn-save mr-2" color="success" onClick={onSave}>
             {t('actions.save')}
           </Button>
-          <Button color="danger" onClick={onCancel}>
+          <Button className="btn-cancel" color="danger" onClick={onCancel}>
             {t('actions.cancel')}
           </Button>
         </div>
       </div>
+
+      <DuplicateNewPatientModal
+        duplicatePatient={duplicatePatient}
+        show={showDuplicateNewPatientModal}
+        toggle={closeDuplicateNewPatientModal}
+        onContinueButtonClick={createDuplicateNewPatient}
+        onCloseButtonClick={closeDuplicateNewPatientModal}
+      />
     </div>
   )
 }

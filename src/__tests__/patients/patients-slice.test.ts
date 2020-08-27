@@ -1,15 +1,31 @@
-import '../../__mocks__/matchMediaMock'
 import { AnyAction } from 'redux'
-import { mocked } from 'ts-jest/utils'
+
 import patients, {
   fetchPatientsStart,
   fetchPatientsSuccess,
   searchPatients,
 } from '../../patients/patients-slice'
-import Patient from '../../model/Patient'
-import PatientRepository from '../../clients/db/PatientRepository'
+import PatientRepository from '../../shared/db/PatientRepository'
+import Patient from '../../shared/model/Patient'
 
 describe('patients slice', () => {
+  const expectedPatients = [
+    {
+      id: '123',
+      fullName: 'test test',
+      isApproximateDateOfBirth: false,
+      givenName: 'test',
+      familyName: 'test',
+      code: 'P12345',
+      sex: 'male',
+      dateOfBirth: new Date().toISOString(),
+      phoneNumber: '99999999',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      rev: '',
+    } as Patient,
+  ]
+
   beforeEach(() => {
     jest.resetAllMocks()
   })
@@ -22,10 +38,9 @@ describe('patients slice', () => {
     })
 
     it('should handle the FETCH_PATIENTS_SUCCESS action', () => {
-      const expectedPatients = [{ id: '1234' }]
       const patientsStore = patients(undefined, {
         type: fetchPatientsSuccess.type,
-        payload: [{ id: '1234' }],
+        payload: expectedPatients,
       })
 
       expect(patientsStore.isLoading).toBeFalsy()
@@ -34,6 +49,11 @@ describe('patients slice', () => {
   })
 
   describe('searchPatients', () => {
+    beforeEach(() => {
+      jest.spyOn(PatientRepository, 'findAll').mockResolvedValue(expectedPatients)
+      jest.spyOn(PatientRepository, 'search').mockResolvedValue(expectedPatients)
+    })
+
     it('should dispatch the FETCH_PATIENTS_START action', async () => {
       const dispatch = jest.fn()
       const getState = jest.fn()
@@ -61,21 +81,13 @@ describe('patients slice', () => {
 
       await searchPatients('')(dispatch, getState, null)
 
-      expect(PatientRepository.findAll).toHaveBeenCalledTimes(1)
+      // expecting 2 here because searchPatients uses PatientRepository.count() which calls #findAll
+      expect(PatientRepository.findAll).toHaveBeenCalledTimes(2)
     })
 
     it('should dispatch the FETCH_PATIENTS_SUCCESS action', async () => {
       const dispatch = jest.fn()
       const getState = jest.fn()
-
-      const expectedPatients = [
-        {
-          id: '1234',
-        },
-      ] as Patient[]
-
-      const mockedPatientRepository = mocked(PatientRepository, true)
-      mockedPatientRepository.search.mockResolvedValue(expectedPatients)
 
       await searchPatients('search string')(dispatch, getState, null)
 

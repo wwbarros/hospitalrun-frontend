@@ -1,22 +1,23 @@
-import '../../__mocks__/matchMediaMock'
+import { TextInput, Select, Table } from '@hospitalrun/components'
+import { act } from '@testing-library/react'
+import { mount, ReactWrapper } from 'enzyme'
+import { createMemoryHistory } from 'history'
 import React from 'react'
 import { Provider } from 'react-redux'
-import { Router } from 'react-router'
-import ViewLabs from 'labs/ViewLabs'
-import { mount, ReactWrapper } from 'enzyme'
-import configureMockStore from 'redux-mock-store'
+import { Router } from 'react-router-dom'
+import createMockStore from 'redux-mock-store'
 import thunk from 'redux-thunk'
-import { createMemoryHistory } from 'history'
-import Permissions from 'model/Permissions'
-import { act } from '@testing-library/react'
-import LabRepository from 'clients/db/LabRepository'
-import Lab from 'model/Lab'
-import format from 'date-fns/format'
-import * as ButtonBarProvider from 'page-header/ButtonBarProvider'
-import SortRequest from 'clients/db/SortRequest'
-import * as titleUtil from '../../page-header/useTitle'
 
-const mockStore = configureMockStore([thunk])
+import * as labsSlice from '../../labs/labs-slice'
+import ViewLabs from '../../labs/ViewLabs'
+import * as ButtonBarProvider from '../../page-header/button-toolbar/ButtonBarProvider'
+import * as titleUtil from '../../page-header/title/useTitle'
+import LabRepository from '../../shared/db/LabRepository'
+import Lab from '../../shared/model/Lab'
+import Permissions from '../../shared/model/Permissions'
+import { RootState } from '../../shared/store'
+
+const mockStore = createMockStore<RootState, any>([thunk])
 
 describe('View Labs', () => {
   describe('title', () => {
@@ -25,7 +26,8 @@ describe('View Labs', () => {
       const store = mockStore({
         title: '',
         user: { permissions: [Permissions.ViewLabs, Permissions.RequestLab] },
-      })
+        labs: { labs: [] },
+      } as any)
       titleSpy = jest.spyOn(titleUtil, 'default')
       jest.spyOn(LabRepository, 'findAll').mockResolvedValue([])
       await act(async () => {
@@ -49,7 +51,8 @@ describe('View Labs', () => {
       const store = mockStore({
         title: '',
         user: { permissions: [Permissions.ViewLabs, Permissions.RequestLab] },
-      })
+        labs: { labs: [] },
+      } as any)
       const setButtonToolBarSpy = jest.fn()
       jest.spyOn(ButtonBarProvider, 'useButtonToolbarSetter').mockReturnValue(setButtonToolBarSpy)
       jest.spyOn(LabRepository, 'findAll').mockResolvedValue([])
@@ -71,7 +74,8 @@ describe('View Labs', () => {
       const store = mockStore({
         title: '',
         user: { permissions: [Permissions.ViewLabs] },
-      })
+        labs: { labs: [] },
+      } as any)
       const setButtonToolBarSpy = jest.fn()
       jest.spyOn(ButtonBarProvider, 'useButtonToolbarSetter').mockReturnValue(setButtonToolBarSpy)
       jest.spyOn(LabRepository, 'findAll').mockResolvedValue([])
@@ -94,9 +98,10 @@ describe('View Labs', () => {
     let wrapper: ReactWrapper
     let history: any
     const expectedLab = {
+      code: 'L-1234',
       id: '1234',
       type: 'lab type',
-      patientId: 'patientId',
+      patient: 'patientId',
       status: 'requested',
       requestedOn: '2020-03-30T04:43:20.102Z',
     } as Lab
@@ -105,7 +110,8 @@ describe('View Labs', () => {
       const store = mockStore({
         title: '',
         user: { permissions: [Permissions.ViewLabs, Permissions.RequestLab] },
-      })
+        labs: { labs: [expectedLab] },
+      } as any)
       history = createMemoryHistory()
 
       jest.spyOn(LabRepository, 'findAll').mockResolvedValue([expectedLab])
@@ -123,75 +129,141 @@ describe('View Labs', () => {
     })
 
     it('should render a table with data', () => {
-      const table = wrapper.find('table')
-      const tableHeader = table.find('thead')
-      const tableBody = table.find('tbody')
-
-      const tableColumnHeaders = tableHeader.find('th')
-      const tableDataColumns = tableBody.find('td')
-
-      expect(table).toBeDefined()
-      expect(tableHeader).toBeDefined()
-      expect(tableBody).toBeDefined()
-      expect(tableColumnHeaders.at(0).text().trim()).toEqual('labs.lab.type')
-
-      expect(tableColumnHeaders.at(1).text().trim()).toEqual('labs.lab.requestedOn')
-
-      expect(tableColumnHeaders.at(2).text().trim()).toEqual('labs.lab.status')
-
-      expect(tableDataColumns.at(0).text().trim()).toEqual(expectedLab.type)
-
-      expect(tableDataColumns.at(1).text().trim()).toEqual(
-        format(new Date(expectedLab.requestedOn), 'yyyy-MM-dd hh:mm a'),
+      const table = wrapper.find(Table)
+      const columns = table.prop('columns')
+      const actions = table.prop('actions') as any
+      expect(columns[0]).toEqual(expect.objectContaining({ label: 'labs.lab.code', key: 'code' }))
+      expect(columns[1]).toEqual(expect.objectContaining({ label: 'labs.lab.type', key: 'type' }))
+      expect(columns[2]).toEqual(
+        expect.objectContaining({ label: 'labs.lab.requestedOn', key: 'requestedOn' }),
+      )
+      expect(columns[3]).toEqual(
+        expect.objectContaining({ label: 'labs.lab.status', key: 'status' }),
       )
 
-      expect(tableDataColumns.at(2).text().trim()).toEqual(expectedLab.status)
+      expect(actions[0]).toEqual(expect.objectContaining({ label: 'actions.view' }))
+      expect(table.prop('actionsHeaderText')).toEqual('actions.label')
+      expect(table.prop('data')).toEqual([expectedLab])
     })
 
-    it('should navigate to the lab when the row is clicked', () => {
-      const table = wrapper.find('table')
-      const tableBody = table.find('tbody')
-      const tableRow = tableBody.find('tr').at(0)
+    it('should navigate to the lab when the view button is clicked', () => {
+      const tr = wrapper.find('tr').at(1)
 
       act(() => {
-        const onClick = tableRow.prop('onClick') as any
-        onClick()
+        const onClick = tr.find('button').prop('onClick') as any
+        onClick({ stopPropagation: jest.fn() })
       })
-
       expect(history.location.pathname).toEqual(`/labs/${expectedLab.id}`)
     })
   })
 
-  describe('sort Request', () => {
-    let findAllSpy: any
-    beforeEach(async () => {
-      const store = mockStore({
-        title: '',
-        user: { permissions: [Permissions.ViewLabs, Permissions.RequestLab] },
-      })
-      findAllSpy = jest.spyOn(LabRepository, 'findAll')
-      findAllSpy.mockResolvedValue([])
-      await act(async () => {
-        await mount(
-          <Provider store={store}>
-            <Router history={createMemoryHistory()}>
-              <ViewLabs />
-            </Router>
-          </Provider>,
-        )
+  describe('dropdown', () => {
+    it('should search for labs when dropdown changes', () => {
+      const searchLabsSpy = jest.spyOn(labsSlice, 'searchLabs')
+      let wrapper: ReactWrapper
+      let history: any
+      const expectedLab = {
+        id: '1234',
+        type: 'lab type',
+        patient: 'patientId',
+        status: 'requested',
+        requestedOn: '2020-03-30T04:43:20.102Z',
+      } as Lab
+
+      beforeEach(async () => {
+        const store = mockStore({
+          title: '',
+          user: { permissions: [Permissions.ViewLabs, Permissions.RequestLab] },
+          labs: { labs: [expectedLab] },
+        } as any)
+        history = createMemoryHistory()
+
+        await act(async () => {
+          wrapper = await mount(
+            <Provider store={store}>
+              <Router history={history}>
+                <ViewLabs />
+              </Router>
+            </Provider>,
+          )
+        })
+
+        searchLabsSpy.mockClear()
+
+        act(() => {
+          const onChange = wrapper.find(Select).prop('onChange') as any
+          onChange({
+            target: {
+              value: 'requested',
+            },
+            preventDefault: jest.fn(),
+          })
+        })
+
+        wrapper.update()
+        expect(searchLabsSpy).toHaveBeenCalledTimes(1)
       })
     })
+  })
 
-    it('should have called findAll with sort request', () => {
-      const sortRequest: SortRequest = {
-        sorts: [
-          {
-            field: 'requestedOn',
-            direction: 'desc',
-          },
-        ],
-      }
-      expect(findAllSpy).toHaveBeenCalledWith(sortRequest)
+  describe('search functionality', () => {
+    beforeEach(() => jest.useFakeTimers())
+
+    afterEach(() => jest.useRealTimers())
+
+    it('should search for labs after the search text has not changed for 500 milliseconds', () => {
+      const searchLabsSpy = jest.spyOn(labsSlice, 'searchLabs')
+      let wrapper: ReactWrapper
+      let history: any
+      const expectedLab = {
+        id: '1234',
+        type: 'lab type',
+        patient: 'patientId',
+        status: 'requested',
+        requestedOn: '2020-03-30T04:43:20.102Z',
+      } as Lab
+
+      beforeEach(async () => {
+        const store = mockStore({
+          title: '',
+          user: { permissions: [Permissions.ViewLabs, Permissions.RequestLab] },
+          labs: { labs: [expectedLab] },
+        } as any)
+        history = createMemoryHistory()
+
+        jest.spyOn(LabRepository, 'findAll').mockResolvedValue([expectedLab])
+        await act(async () => {
+          wrapper = await mount(
+            <Provider store={store}>
+              <Router history={history}>
+                <ViewLabs />
+              </Router>
+            </Provider>,
+          )
+        })
+
+        searchLabsSpy.mockClear()
+        const expectedSearchText = 'search text'
+
+        act(() => {
+          const onClick = wrapper.find(TextInput).prop('onChange') as any
+          onClick({
+            target: {
+              value: expectedSearchText,
+            },
+            preventDefault: jest.fn(),
+          })
+        })
+
+        act(() => {
+          jest.advanceTimersByTime(500)
+        })
+
+        wrapper.update()
+
+        expect(searchLabsSpy).toHaveBeenCalledTimes(1)
+        expect(searchLabsSpy).toHaveBeenLastCalledWith(expectedSearchText)
+      })
     })
   })
 })

@@ -1,33 +1,35 @@
-import '../../__mocks__/matchMediaMock'
+import { Badge, Button, Alert } from '@hospitalrun/components'
+import { act } from '@testing-library/react'
+import format from 'date-fns/format'
+import { mount } from 'enzyme'
+import { createMemoryHistory } from 'history'
 import React from 'react'
 import { Provider } from 'react-redux'
-import { Router, Route } from 'react-router'
-import { mount } from 'enzyme'
-import thunk from 'redux-thunk'
-import { createMemoryHistory } from 'history'
-import Permissions from 'model/Permissions'
-import { act } from '@testing-library/react'
-import LabRepository from 'clients/db/LabRepository'
-import PatientRepository from 'clients/db/PatientRepository'
-import Lab from 'model/Lab'
-import Patient from 'model/Patient'
-import * as ButtonBarProvider from 'page-header/ButtonBarProvider'
+import { Router, Route } from 'react-router-dom'
 import createMockStore from 'redux-mock-store'
-import { Badge, Button, Alert } from '@hospitalrun/components'
-import TextFieldWithLabelFormGroup from 'components/input/TextFieldWithLabelFormGroup'
-import format from 'date-fns/format'
-import * as titleUtil from '../../page-header/useTitle'
+import thunk from 'redux-thunk'
+
 import ViewLab from '../../labs/ViewLab'
+import * as ButtonBarProvider from '../../page-header/button-toolbar/ButtonBarProvider'
+import * as titleUtil from '../../page-header/title/useTitle'
+import TextFieldWithLabelFormGroup from '../../shared/components/input/TextFieldWithLabelFormGroup'
+import LabRepository from '../../shared/db/LabRepository'
+import PatientRepository from '../../shared/db/PatientRepository'
+import Lab from '../../shared/model/Lab'
+import Patient from '../../shared/model/Patient'
+import Permissions from '../../shared/model/Permissions'
+import { RootState } from '../../shared/store'
 
-const mockStore = createMockStore([thunk])
+const mockStore = createMockStore<RootState, any>([thunk])
 
-describe('View Labs', () => {
+describe('View Lab', () => {
   let history: any
   const mockPatient = { fullName: 'test' }
   const mockLab = {
+    code: 'L-1234',
     id: '12456',
     status: 'requested',
-    patientId: '1234',
+    patient: '1234',
     type: 'lab type',
     notes: 'lab notes',
     requestedOn: '2020-03-30T04:43:20.102Z',
@@ -58,9 +60,9 @@ describe('View Labs', () => {
         lab,
         patient: mockPatient,
         error,
-        status: Object.keys(error).length > 0 ? 'error' : 'success',
+        status: Object.keys(error).length > 0 ? 'error' : 'completed',
       },
-    })
+    } as any)
 
     let wrapper: any
     await act(async () => {
@@ -83,7 +85,9 @@ describe('View Labs', () => {
   it('should set the title', async () => {
     await setup(mockLab, [Permissions.ViewLab])
 
-    expect(titleSpy).toHaveBeenCalledWith(`${mockLab.type} for ${mockPatient.fullName}`)
+    expect(titleSpy).toHaveBeenCalledWith(
+      `${mockLab.type} for ${mockPatient.fullName}(${mockLab.code})`,
+    )
   })
 
   describe('page content', () => {
@@ -325,7 +329,7 @@ describe('View Labs', () => {
       expect(labRepositorySaveSpy).toHaveBeenCalledWith(
         expect.objectContaining({ ...mockLab, result: expectedResult, notes: expectedNotes }),
       )
-      expect(history.location.pathname).toEqual('/labs')
+      expect(history.location.pathname).toEqual('/labs/12456')
     })
   })
 
@@ -361,7 +365,7 @@ describe('View Labs', () => {
           completedOn: expectedDate.toISOString(),
         }),
       )
-      expect(history.location.pathname).toEqual('/labs')
+      expect(history.location.pathname).toEqual('/labs/12456')
     })
   })
 

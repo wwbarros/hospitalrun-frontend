@@ -1,9 +1,6 @@
-import thunk from 'redux-thunk'
 import createMockStore from 'redux-mock-store'
-import PatientRepository from '../../clients/db/PatientRepository'
-import LabRepository from '../../clients/db/LabRepository'
-import Lab from '../../model/Lab'
-import Patient from '../../model/Patient'
+import thunk from 'redux-thunk'
+
 import labSlice, {
   requestLab,
   fetchLabStart,
@@ -23,7 +20,11 @@ import labSlice, {
   requestLabError,
   updateLab,
 } from '../../labs/lab-slice'
-import { RootState } from '../../store'
+import LabRepository from '../../shared/db/LabRepository'
+import PatientRepository from '../../shared/db/PatientRepository'
+import Lab from '../../shared/model/Lab'
+import Patient from '../../shared/model/Patient'
+import { RootState } from '../../shared/store'
 
 const mockStore = createMockStore<RootState, any>([thunk])
 
@@ -40,14 +41,14 @@ describe('lab slice', () => {
     describe('fetchLabSuccess', () => {
       it('should set the lab, patient, and status to success', () => {
         const expectedLab = { id: 'labId' } as Lab
-        const expectedPatient = { id: 'patientId' } as Patient
+        const expectedPatient = { id: 'patient' } as Patient
 
         const labStore = labSlice(
           undefined,
           fetchLabSuccess({ lab: expectedLab, patient: expectedPatient }),
         )
 
-        expect(labStore.status).toEqual('success')
+        expect(labStore.status).toEqual('completed')
         expect(labStore.lab).toEqual(expectedLab)
         expect(labStore.patient).toEqual(expectedPatient)
       })
@@ -67,7 +68,7 @@ describe('lab slice', () => {
 
         const labStore = labSlice(undefined, updateLabSuccess(expectedLab))
 
-        expect(labStore.status).toEqual('success')
+        expect(labStore.status).toEqual('completed')
         expect(labStore.lab).toEqual(expectedLab)
       })
     })
@@ -86,7 +87,7 @@ describe('lab slice', () => {
 
         const labStore = labSlice(undefined, requestLabSuccess(expectedLab))
 
-        expect(labStore.status).toEqual('success')
+        expect(labStore.status).toEqual('completed')
         expect(labStore.lab).toEqual(expectedLab)
       })
     })
@@ -114,7 +115,7 @@ describe('lab slice', () => {
 
         const labStore = labSlice(undefined, completeLabSuccess(expectedLab))
 
-        expect(labStore.status).toEqual('success')
+        expect(labStore.status).toEqual('completed')
         expect(labStore.lab).toEqual(expectedLab)
       })
     })
@@ -142,7 +143,7 @@ describe('lab slice', () => {
 
         const labStore = labSlice(undefined, cancelLabSuccess(expectedLab))
 
-        expect(labStore.status).toEqual('success')
+        expect(labStore.status).toEqual('completed')
         expect(labStore.lab).toEqual(expectedLab)
       })
     })
@@ -154,11 +155,11 @@ describe('lab slice', () => {
 
     const mockLab = {
       id: 'labId',
-      patientId: 'patientId',
+      patient: 'patient',
     } as Lab
 
     const mockPatient = {
-      id: 'patientId',
+      id: 'patient',
     } as Patient
 
     beforeEach(() => {
@@ -174,7 +175,7 @@ describe('lab slice', () => {
 
       expect(actions[0]).toEqual(fetchLabStart())
       expect(labRepositoryFindSpy).toHaveBeenCalledWith(mockLab.id)
-      expect(patientRepositorySpy).toHaveBeenCalledWith(mockLab.patientId)
+      expect(patientRepositorySpy).toHaveBeenCalledWith(mockLab.patient)
       expect(actions[1]).toEqual(fetchLabSuccess({ lab: mockLab, patient: mockPatient }))
     })
   })
@@ -182,7 +183,7 @@ describe('lab slice', () => {
   describe('cancel lab', () => {
     const mockLab = {
       id: 'labId',
-      patientId: 'patientId',
+      patient: 'patient',
     } as Lab
     let labRepositorySaveOrUpdateSpy: any
 
@@ -228,7 +229,7 @@ describe('lab slice', () => {
   describe('complete lab', () => {
     const mockLab = {
       id: 'labId',
-      patientId: 'patientId',
+      patient: 'patient',
       result: 'lab result',
     } as Lab
     let labRepositorySaveOrUpdateSpy: any
@@ -292,7 +293,7 @@ describe('lab slice', () => {
     const mockLab = {
       id: 'labId',
       type: 'labType',
-      patientId: 'patientId',
+      patient: 'patient',
     } as Lab
     let labRepositorySaveSpy: any
 
@@ -303,11 +304,19 @@ describe('lab slice', () => {
     })
 
     it('should request a new lab', async () => {
-      const store = mockStore()
+      const store = mockStore({
+        user: {
+          user: {
+            id: 'fake id',
+          },
+        },
+      } as any)
+
       const expectedRequestedLab = {
         ...mockLab,
         requestedOn: new Date(Date.now()).toISOString(),
         status: 'requested',
+        requestedBy: store.getState().user.user.id,
       } as Lab
 
       await store.dispatch(requestLab(mockLab))
@@ -320,7 +329,13 @@ describe('lab slice', () => {
     })
 
     it('should execute the onSuccess callback if provided', async () => {
-      const store = mockStore()
+      const store = mockStore({
+        user: {
+          user: {
+            id: 'fake id',
+          },
+        },
+      } as any)
       const onSuccessSpy = jest.fn()
 
       await store.dispatch(requestLab(mockLab, onSuccessSpy))
@@ -351,7 +366,7 @@ describe('lab slice', () => {
   describe('update lab', () => {
     const mockLab = {
       id: 'labId',
-      patientId: 'patientId',
+      patient: 'patient',
       result: 'lab result',
     } as Lab
     let labRepositorySaveOrUpdateSpy: any

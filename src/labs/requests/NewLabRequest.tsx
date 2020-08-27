@@ -1,31 +1,36 @@
-import React, { useState } from 'react'
-import useTitle from 'page-header/useTitle'
-import { useTranslation } from 'react-i18next'
-import { Typeahead, Label, Button, Alert } from '@hospitalrun/components'
-import PatientRepository from 'clients/db/PatientRepository'
-import Patient from 'model/Patient'
-import TextInputWithLabelFormGroup from 'components/input/TextInputWithLabelFormGroup'
-import { useHistory } from 'react-router'
-import Lab from 'model/Lab'
-import TextFieldWithLabelFormGroup from 'components/input/TextFieldWithLabelFormGroup'
-import useAddBreadcrumbs from 'breadcrumbs/useAddBreadcrumbs'
+import { Typeahead, Label, Button, Alert, Toast } from '@hospitalrun/components'
+import React, { useState, useEffect } from 'react'
 import { useDispatch, useSelector } from 'react-redux'
-import { requestLab } from 'labs/lab-slice'
-import { RootState } from 'store'
+import { useHistory } from 'react-router-dom'
+
+import useAddBreadcrumbs from '../../page-header/breadcrumbs/useAddBreadcrumbs'
+import useTitle from '../../page-header/title/useTitle'
+import TextFieldWithLabelFormGroup from '../../shared/components/input/TextFieldWithLabelFormGroup'
+import TextInputWithLabelFormGroup from '../../shared/components/input/TextInputWithLabelFormGroup'
+import PatientRepository from '../../shared/db/PatientRepository'
+import useTranslator from '../../shared/hooks/useTranslator'
+import Lab from '../../shared/model/Lab'
+import Patient from '../../shared/model/Patient'
+import { RootState } from '../../shared/store'
+import { requestLab, resetLab } from '../lab-slice'
 
 const NewLabRequest = () => {
-  const { t } = useTranslation()
+  const { t } = useTranslator()
   const dispatch = useDispatch()
   const history = useHistory()
   useTitle(t('labs.requests.new'))
   const { status, error } = useSelector((state: RootState) => state.lab)
 
   const [newLabRequest, setNewLabRequest] = useState({
-    patientId: '',
+    patient: '',
     type: '',
     notes: '',
     status: 'requested',
   })
+
+  useEffect(() => {
+    dispatch(resetLab())
+  }, [dispatch])
 
   const breadcrumbs = [
     {
@@ -38,7 +43,8 @@ const NewLabRequest = () => {
   const onPatientChange = (patient: Patient) => {
     setNewLabRequest((previousNewLabRequest) => ({
       ...previousNewLabRequest,
-      patientId: patient.id,
+      patient: patient.id,
+      fullName: patient.fullName,
     }))
   }
 
@@ -59,12 +65,16 @@ const NewLabRequest = () => {
   }
 
   const onSave = async () => {
-    const newLab = newLabRequest as Lab
-    const onSuccess = (createdLab: Lab) => {
-      history.push(`/labs/${createdLab.id}`)
+    const onSuccessRequest = (newLab: Lab) => {
+      history.push(`/labs/${newLab.id}`)
+      Toast(
+        'success',
+        t('states.success'),
+        `${t('lab.successfullyCreated')} ${newLab.type} ${newLab.patient}`,
+      )
     }
 
-    dispatch(requestLab(newLab, onSuccess))
+    dispatch(requestLab(newLabRequest as Lab, onSuccessRequest))
   }
 
   const onCancel = () => {
@@ -111,8 +121,9 @@ const NewLabRequest = () => {
         <div className="row float-right">
           <div className="btn-group btn-group-lg mt-3">
             <Button className="mr-2" color="success" onClick={onSave}>
-              {t('actions.save')}
+              {t('labs.requests.save')}
             </Button>
+
             <Button color="danger" onClick={onCancel}>
               {t('actions.cancel')}
             </Button>

@@ -1,25 +1,36 @@
-import React, { useState, useEffect, useCallback } from 'react'
-import useTitle from 'page-header/useTitle'
-import { useTranslation } from 'react-i18next'
+import { Button, Table } from '@hospitalrun/components'
 import format from 'date-fns/format'
-import { useButtonToolbarSetter } from 'page-header/ButtonBarProvider'
-import { Button } from '@hospitalrun/components'
-import { useHistory } from 'react-router'
-import LabRepository from 'clients/db/LabRepository'
-import SortRequest from 'clients/db/SortRequest'
-import Lab from 'model/Lab'
-import { useSelector } from 'react-redux'
-import Permissions from 'model/Permissions'
-import { RootState } from '../store'
+import React, { useState, useEffect, useCallback } from 'react'
+import { useSelector, useDispatch } from 'react-redux'
+import { useHistory } from 'react-router-dom'
+
+import { useButtonToolbarSetter } from '../page-header/button-toolbar/ButtonBarProvider'
+import useTitle from '../page-header/title/useTitle'
+import SelectWithLabelFormGroup, {
+  Option,
+} from '../shared/components/input/SelectWithLableFormGroup'
+import TextInputWithLabelFormGroup from '../shared/components/input/TextInputWithLabelFormGroup'
+import useDebounce from '../shared/hooks/useDebounce'
+import useTranslator from '../shared/hooks/useTranslator'
+import Lab from '../shared/model/Lab'
+import Permissions from '../shared/model/Permissions'
+import { RootState } from '../shared/store'
+import { searchLabs } from './labs-slice'
+
+type LabFilter = 'requested' | 'completed' | 'canceled' | 'all'
 
 const ViewLabs = () => {
-  const { t } = useTranslation()
+  const { t } = useTranslator()
   const history = useHistory()
   const setButtons = useButtonToolbarSetter()
   useTitle(t('labs.label'))
 
   const { permissions } = useSelector((state: RootState) => state.user)
-  const [labs, setLabs] = useState<Lab[]>([])
+  const dispatch = useDispatch()
+  const { labs } = useSelector((state: RootState) => state.labs)
+  const [searchFilter, setSearchFilter] = useState<LabFilter>('all')
+  const [searchText, setSearchText] = useState<string>('')
+  const debouncedSearchText = useDebounce(searchText, 500)
 
   const getButtons = useCallback(() => {
     const buttons: React.ReactNode[] = []
@@ -42,51 +53,74 @@ const ViewLabs = () => {
   }, [permissions, history, t])
 
   useEffect(() => {
-    const fetch = async () => {
-      const sortRequest: SortRequest = {
-        sorts: [
-          {
-            field: 'requestedOn',
-            direction: 'desc',
-          },
-        ],
-      }
-      const fetchedLabs = await LabRepository.findAll(sortRequest)
-      setLabs(fetchedLabs)
-    }
+    dispatch(searchLabs(debouncedSearchText, searchFilter))
+  }, [dispatch, debouncedSearchText, searchFilter])
 
+  useEffect(() => {
     setButtons(getButtons())
-    fetch()
-
     return () => {
       setButtons([])
     }
-  }, [getButtons, setButtons])
+  }, [dispatch, getButtons, setButtons])
 
-  const onTableRowClick = (lab: Lab) => {
+  const onViewClick = (lab: Lab) => {
     history.push(`/labs/${lab.id}`)
   }
 
+  const onSearchBoxChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    setSearchText(event.target.value)
+  }
+
+  const filterOptions: Option[] = [
+    { label: t('labs.status.requested'), value: 'requested' },
+    { label: t('labs.status.completed'), value: 'completed' },
+    { label: t('labs.status.canceled'), value: 'canceled' },
+    { label: t('labs.filter.all'), value: 'all' },
+  ]
+
   return (
     <>
-      <table className="table table-hover">
-        <thead className="thead-light">
-          <tr>
-            <th>{t('labs.lab.type')}</th>
-            <th>{t('labs.lab.requestedOn')}</th>
-            <th>{t('labs.lab.status')}</th>
-          </tr>
-        </thead>
-        <tbody>
-          {labs.map((lab) => (
-            <tr onClick={() => onTableRowClick(lab)} key={lab.id}>
-              <td>{lab.type}</td>
-              <td>{format(new Date(lab.requestedOn), 'yyyy-MM-dd hh:mm a')}</td>
-              <td>{lab.status}</td>
-            </tr>
-          ))}
-        </tbody>
-      </table>
+      <div className="row">
+        <div className="col-md-3 col-lg-2">
+          <SelectWithLabelFormGroup
+            name="type"
+            label={t('labs.filterTitle')}
+            options={filterOptions}
+            defaultSelected={filterOptions.filter(({ value }) => value === searchFilter)}
+            onChange={(values) => setSearchFilter(values[0] as LabFilter)}
+            isEditable
+          />
+        </div>
+        <div className="col">
+          <TextInputWithLabelFormGroup
+            name="searchbox"
+            label={t('labs.search')}
+            placeholder={t('labs.search')}
+            value={searchText}
+            isEditable
+            onChange={onSearchBoxChange}
+          />
+        </div>
+      </div>
+      <div className="row">
+        <Table
+          getID={(row) => row.id}
+          columns={[
+            { label: t('labs.lab.code'), key: 'code' },
+            { label: t('labs.lab.type'), key: 'type' },
+            {
+              label: t('labs.lab.requestedOn'),
+              key: 'requestedOn',
+              formatter: (row) =>
+                row.requestedOn ? format(new Date(row.requestedOn), 'yyyy-MM-dd hh:mm a') : '',
+            },
+            { label: t('labs.lab.status'), key: 'status' },
+          ]}
+          data={labs}
+          actionsHeaderText={t('actions.label')}
+          actions={[{ label: t('actions.view'), action: (row) => onViewClick(row as Lab) }]}
+        />
+      </div>
     </>
   )
 }

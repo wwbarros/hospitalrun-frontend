@@ -1,10 +1,19 @@
-import '../__mocks__/matchMediaMock'
+import { shallow } from 'enzyme'
 import React from 'react'
-import { mount } from 'enzyme'
-import HospitalRun from '../HospitalRun'
+import { Provider } from 'react-redux'
+import configureStore from 'redux-mock-store'
+
 import App from '../App'
 
 it('renders without crashing', () => {
-  const wrapper = mount(<App />)
-  expect(wrapper.find(HospitalRun)).toHaveLength(1)
+  const mockStore = configureStore()({})
+
+  const AppWithStore = () => (
+    <Provider store={mockStore}>
+      <App />
+    </Provider>
+  )
+
+  const wrapper = shallow(<AppWithStore />)
+  expect(wrapper).toBeDefined()
 })

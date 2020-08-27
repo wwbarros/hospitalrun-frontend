@@ -1,24 +1,27 @@
-import '../../../__mocks__/matchMediaMock'
+import { subDays } from 'date-fns'
 import { AnyAction } from 'redux'
-import Appointment from 'model/Appointment'
-import AppointmentRepository from 'clients/db/AppointmentRepository'
 import { mocked } from 'ts-jest/utils'
-import PatientRepository from 'clients/db/PatientRepository'
-import Patient from 'model/Patient'
+
 import appointment, {
   fetchAppointmentStart,
   fetchAppointmentSuccess,
   fetchAppointment,
   createAppointmentStart,
   createAppointmentSuccess,
+  createAppointmentError,
   createAppointment,
   updateAppointmentStart,
   updateAppointmentSuccess,
+  updateAppointmentError,
   updateAppointment,
   deleteAppointment,
   deleteAppointmentStart,
   deleteAppointmentSuccess,
 } from '../../../scheduling/appointments/appointment-slice'
+import AppointmentRepository from '../../../shared/db/AppointmentRepository'
+import PatientRepository from '../../../shared/db/PatientRepository'
+import Appointment from '../../../shared/model/Appointment'
+import Patient from '../../../shared/model/Patient'
 
 describe('appointment slice', () => {
   describe('appointment reducer', () => {
@@ -26,14 +29,14 @@ describe('appointment slice', () => {
       const appointmentStore = appointment(undefined, {} as AnyAction)
 
       expect(appointmentStore.appointment).toEqual({} as Appointment)
-      expect(appointmentStore.isLoading).toBeFalsy()
+      expect(appointmentStore.status).toEqual('loading')
     })
     it('should handle the CREATE_APPOINTMENT_START action', () => {
       const appointmentStore = appointment(undefined, {
         type: createAppointmentStart.type,
       })
 
-      expect(appointmentStore.isLoading).toBeTruthy()
+      expect(appointmentStore.status).toEqual('loading')
     })
 
     it('should handle the CREATE_APPOINTMENT_SUCCESS action', () => {
@@ -41,7 +44,7 @@ describe('appointment slice', () => {
         type: createAppointmentSuccess.type,
       })
 
-      expect(appointmentStore.isLoading).toBeFalsy()
+      expect(appointmentStore.status).toEqual('completed')
     })
 
     it('should handle the UPDATE_APPOINTMENT_START action', () => {
@@ -49,12 +52,12 @@ describe('appointment slice', () => {
         type: updateAppointmentStart.type,
       })
 
-      expect(appointmentStore.isLoading).toBeTruthy()
+      expect(appointmentStore.status).toEqual('loading')
     })
 
     it('should handle the UPDATE_APPOINTMENT_SUCCESS action', () => {
       const expectedAppointment = {
-        patientId: '123',
+        patient: '123',
         startDateTime: new Date().toISOString(),
         endDateTime: new Date().toISOString(),
         location: 'location',
@@ -68,7 +71,7 @@ describe('appointment slice', () => {
         },
       })
 
-      expect(appointmentStore.isLoading).toBeFalsy()
+      expect(appointmentStore.status).toEqual('completed')
       expect(appointmentStore.appointment).toEqual(expectedAppointment)
     })
 
@@ -77,7 +80,7 @@ describe('appointment slice', () => {
         type: fetchAppointmentStart.type,
       })
 
-      expect(appointmentStore.isLoading).toBeTruthy()
+      expect(appointmentStore.status).toEqual('loading')
     })
     it('should handle the FETCH_APPOINTMENT_SUCCESS action', () => {
       const expectedAppointment = {
@@ -96,7 +99,7 @@ describe('appointment slice', () => {
         payload: { appointment: expectedAppointment, patient: expectedPatient },
       })
 
-      expect(appointmentStore.isLoading).toBeFalsy()
+      expect(appointmentStore.status).toEqual('completed')
       expect(appointmentStore.appointment).toEqual(expectedAppointment)
       expect(appointmentStore.patient).toEqual(expectedPatient)
     })
@@ -106,7 +109,7 @@ describe('appointment slice', () => {
         type: deleteAppointmentStart.type,
       })
 
-      expect(appointmentStore.isLoading).toBeTruthy()
+      expect(appointmentStore.status).toEqual('loading')
     })
 
     it('should handle the DELETE_APPOINTMENT_SUCCESS action', () => {
@@ -114,7 +117,7 @@ describe('appointment slice', () => {
         type: deleteAppointmentSuccess.type,
       })
 
-      expect(appointmentStore.isLoading).toBeFalsy()
+      expect(appointmentStore.status).toEqual('completed')
     })
   })
 
@@ -125,7 +128,7 @@ describe('appointment slice', () => {
       const dispatch = jest.fn()
       const getState = jest.fn()
       const expectedAppointment = {
-        patientId: '123',
+        patient: '123',
         startDateTime: new Date().toISOString(),
         endDateTime: new Date().toISOString(),
         location: 'location',
@@ -145,7 +148,7 @@ describe('appointment slice', () => {
       mocked(AppointmentRepository, true).save.mockResolvedValue({ id: '123' } as Appointment)
 
       const expectedAppointment = {
-        patientId: '123',
+        patient: '123',
         startDateTime: new Date().toISOString(),
         endDateTime: new Date().toISOString(),
         location: 'location',
@@ -170,7 +173,7 @@ describe('appointment slice', () => {
       const getState = jest.fn()
 
       const expectedAppointment = {
-        patientId: '123',
+        patient: '123',
         startDateTime: new Date().toISOString(),
         endDateTime: new Date().toISOString(),
         location: 'location',
@@ -182,6 +185,29 @@ describe('appointment slice', () => {
 
       expect(onSuccessSpy).toHaveBeenCalledWith(expectedSavedAppointment)
     })
+
+    it('should validate the appointment', async () => {
+      const dispatch = jest.fn()
+      const getState = jest.fn()
+      const expectedAppointment = {
+        startDateTime: new Date().toISOString(),
+        endDateTime: subDays(new Date(), 5).toISOString(),
+        location: 'location',
+        type: 'type',
+        reason: 'reason',
+      } as Appointment
+
+      await createAppointment(expectedAppointment)(dispatch, getState, null)
+
+      expect(dispatch).toHaveBeenNthCalledWith(2, {
+        type: createAppointmentError.type,
+        payload: {
+          message: 'scheduling.appointment.errors.createAppointmentError',
+          patient: 'scheduling.appointment.errors.patientRequired',
+          startDateTime: 'scheduling.appointment.errors.startDateMustBeBeforeEndDate',
+        },
+      })
+    })
   })
 
   describe('fetchAppointment()', () => {
@@ -190,12 +216,14 @@ describe('appointment slice', () => {
     const expectedAppointment: Appointment = {
       id: '1',
       rev: '1',
-      patientId: '123',
+      patient: '123',
       startDateTime: new Date().toISOString(),
       endDateTime: new Date().toISOString(),
       location: 'location',
       type: 'type',
       reason: 'reason',
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
     }
 
     const expectedPatient: Patient = {
@@ -303,8 +331,16 @@ describe('appointment slice', () => {
       const dispatch = jest.fn()
       const getState = jest.fn()
       jest.spyOn(AppointmentRepository, 'saveOrUpdate')
-      const expectedAppointmentId = 'sliceId9'
-      const expectedAppointment = { id: expectedAppointmentId } as Appointment
+
+      const expectedAppointment = {
+        patient: 'sliceId9',
+        startDateTime: new Date().toISOString(),
+        endDateTime: new Date().toISOString(),
+        location: 'location',
+        type: 'type',
+        reason: 'reason',
+      } as Appointment
+
       const mockedAppointmentRepository = mocked(AppointmentRepository, true)
       mockedAppointmentRepository.saveOrUpdate.mockResolvedValue(expectedAppointment)
 
@@ -317,8 +353,16 @@ describe('appointment slice', () => {
       const dispatch = jest.fn()
       const getState = jest.fn()
       jest.spyOn(AppointmentRepository, 'saveOrUpdate')
-      const expectedAppointmentId = 'sliceId10'
-      const expectedAppointment = { id: expectedAppointmentId } as Appointment
+
+      const expectedAppointment = {
+        patient: 'sliceId10',
+        startDateTime: new Date().toISOString(),
+        endDateTime: new Date().toISOString(),
+        location: 'location',
+        type: 'type',
+        reason: 'reason',
+      } as Appointment
+
       const mockedAppointmentRepository = mocked(AppointmentRepository, true)
       mockedAppointmentRepository.saveOrUpdate.mockResolvedValue(expectedAppointment)
 
@@ -331,8 +375,16 @@ describe('appointment slice', () => {
       const dispatch = jest.fn()
       const getState = jest.fn()
       jest.spyOn(AppointmentRepository, 'saveOrUpdate')
-      const expectedAppointmentId = 'sliceId11'
-      const expectedAppointment = { id: expectedAppointmentId } as Appointment
+
+      const expectedAppointment = {
+        patient: 'sliceId11',
+        startDateTime: new Date().toISOString(),
+        endDateTime: new Date().toISOString(),
+        location: 'location',
+        type: 'type',
+        reason: 'reason',
+      } as Appointment
+
       const mockedAppointmentRepository = mocked(AppointmentRepository, true)
       mockedAppointmentRepository.saveOrUpdate.mockResolvedValue(expectedAppointment)
 
@@ -349,14 +401,45 @@ describe('appointment slice', () => {
       const dispatch = jest.fn()
       const getState = jest.fn()
       jest.spyOn(AppointmentRepository, 'saveOrUpdate')
-      const expectedAppointmentId = 'sliceId11'
-      const expectedAppointment = { id: expectedAppointmentId } as Appointment
+
+      const expectedAppointment = {
+        patient: 'sliceId12',
+        startDateTime: new Date().toISOString(),
+        endDateTime: new Date().toISOString(),
+        location: 'location',
+        type: 'type',
+        reason: 'reason',
+      } as Appointment
+
       const mockedAppointmentRepository = mocked(AppointmentRepository, true)
       mockedAppointmentRepository.saveOrUpdate.mockResolvedValue(expectedAppointment)
 
       await updateAppointment(expectedAppointment, onSuccessSpy)(dispatch, getState, null)
 
       expect(onSuccessSpy).toHaveBeenCalledWith(expectedAppointment)
+    })
+
+    it('should validate the appointment', async () => {
+      const dispatch = jest.fn()
+      const getState = jest.fn()
+      const expectedAppointment = {
+        startDateTime: new Date().toISOString(),
+        endDateTime: subDays(new Date(), 5).toISOString(),
+        location: 'location',
+        type: 'type',
+        reason: 'reason',
+      } as Appointment
+
+      await updateAppointment(expectedAppointment)(dispatch, getState, null)
+
+      expect(dispatch).toHaveBeenNthCalledWith(2, {
+        type: updateAppointmentError.type,
+        payload: {
+          message: 'scheduling.appointment.errors.updateAppointmentError',
+          patient: 'scheduling.appointment.errors.patientRequired',
+          startDateTime: 'scheduling.appointment.errors.startDateMustBeBeforeEndDate',
+        },
+      })
     })
   })
 })

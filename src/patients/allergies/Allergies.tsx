@@ -1,23 +1,23 @@
+import { Button } from '@hospitalrun/components'
 import React, { useState } from 'react'
-import useAddBreadcrumbs from 'breadcrumbs/useAddBreadcrumbs'
-import Patient from 'model/Patient'
-import { Button, List, ListItem, Alert, Toast } from '@hospitalrun/components'
-import { useSelector, useDispatch } from 'react-redux'
-import { RootState } from 'store'
-import Permissions from 'model/Permissions'
-import { useTranslation } from 'react-i18next'
-import Allergy from 'model/Allergy'
-import { updatePatient } from 'patients/patient-slice'
-import { getTimestampId } from 'patients/util/timestamp-id-generator'
+import { useSelector } from 'react-redux'
+import { Route, Switch } from 'react-router-dom'
+
+import useAddBreadcrumbs from '../../page-header/breadcrumbs/useAddBreadcrumbs'
+import useTranslator from '../../shared/hooks/useTranslator'
+import Patient from '../../shared/model/Patient'
+import Permissions from '../../shared/model/Permissions'
+import { RootState } from '../../shared/store'
+import AllergiesList from './AllergiesList'
 import NewAllergyModal from './NewAllergyModal'
+import ViewAllergy from './ViewAllergy'
 
 interface AllergiesProps {
   patient: Patient
 }
 
 const Allergies = (props: AllergiesProps) => {
-  const { t } = useTranslation()
-  const dispatch = useDispatch()
+  const { t } = useTranslator()
   const { patient } = props
   const { permissions } = useSelector((state: RootState) => state.user)
   const [showNewAllergyModal, setShowNewAllergyModal] = useState(false)
@@ -29,22 +29,6 @@ const Allergies = (props: AllergiesProps) => {
     },
   ]
   useAddBreadcrumbs(breadcrumbs)
-
-  const onAddAllergySuccess = () => {
-    Toast('success', t('states.success'), `${t('patient.allergies.successfullyAdded')}`)
-  }
-
-  const onAddAllergy = (allergy: Allergy) => {
-    allergy.id = getTimestampId()
-    const allergies = []
-    if (patient.allergies) {
-      allergies.push(...patient.allergies)
-    }
-
-    allergies.push(allergy)
-    const patientToUpdate = { ...patient, allergies }
-    dispatch(updatePatient(patientToUpdate, onAddAllergySuccess))
-  }
 
   return (
     <>
@@ -64,22 +48,18 @@ const Allergies = (props: AllergiesProps) => {
         </div>
       </div>
       <br />
-      {(!patient.allergies || patient.allergies.length === 0) && (
-        <Alert
-          color="warning"
-          title={t('patient.allergies.warning.noAllergies')}
-          message={t('patient.allergies.addAllergyAbove')}
-        />
-      )}
-      <List>
-        {patient.allergies?.map((a: Allergy) => (
-          <ListItem key={a.id}>{a.name}</ListItem>
-        ))}
-      </List>
+      <Switch>
+        <Route exact path="/patients/:id/allergies">
+          <AllergiesList patientId={patient.id} />
+        </Route>
+        <Route exact path="/patients/:id/allergies/:allergyId">
+          <ViewAllergy />
+        </Route>
+      </Switch>
       <NewAllergyModal
+        patientId={patient.id}
         show={showNewAllergyModal}
         onCloseButtonClick={() => setShowNewAllergyModal(false)}
-        onSave={(allergy) => onAddAllergy(allergy)}
       />
     </>
   )

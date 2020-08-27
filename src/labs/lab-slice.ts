@@ -1,9 +1,10 @@
-import Lab from 'model/Lab'
-import Patient from 'model/Patient'
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
-import { AppThunk } from 'store'
-import LabRepository from 'clients/db/LabRepository'
-import PatientRepository from 'clients/db/PatientRepository'
+
+import LabRepository from '../shared/db/LabRepository'
+import PatientRepository from '../shared/db/PatientRepository'
+import Lab from '../shared/model/Lab'
+import Patient from '../shared/model/Patient'
+import { AppThunk } from '../shared/store'
 
 interface Error {
   result?: string
@@ -16,7 +17,7 @@ interface LabState {
   error: Error
   lab?: Lab
   patient?: Patient
-  status: 'loading' | 'error' | 'success'
+  status: 'loading' | 'error' | 'completed'
 }
 
 const initialState: LabState = {
@@ -31,7 +32,7 @@ function start(state: LabState) {
 }
 
 function finish(state: LabState, { payload }: PayloadAction<Lab>) {
-  state.status = 'success'
+  state.status = 'completed'
   state.lab = payload
   state.error = {}
 }
@@ -50,7 +51,7 @@ const labSlice = createSlice({
       state: LabState,
       { payload }: PayloadAction<{ lab: Lab; patient: Patient }>,
     ) => {
-      state.status = 'success'
+      state.status = 'completed'
       state.lab = payload.lab
       state.patient = payload.patient
     },
@@ -85,13 +86,13 @@ export const {
 export const fetchLab = (labId: string): AppThunk => async (dispatch) => {
   dispatch(fetchLabStart())
   const fetchedLab = await LabRepository.find(labId)
-  const fetchedPatient = await PatientRepository.find(fetchedLab.patientId)
+  const fetchedPatient = await PatientRepository.find(fetchedLab.patient)
   dispatch(fetchLabSuccess({ lab: fetchedLab, patient: fetchedPatient }))
 }
 
 const validateLabRequest = (newLab: Lab): Error => {
   const labRequestError: Error = {}
-  if (!newLab.patientId) {
+  if (!newLab.patient) {
     labRequestError.patient = 'labs.requests.error.patientRequired'
   }
 
@@ -104,6 +105,7 @@ const validateLabRequest = (newLab: Lab): Error => {
 
 export const requestLab = (newLab: Lab, onSuccess?: (lab: Lab) => void): AppThunk => async (
   dispatch,
+  getState,
 ) => {
   dispatch(requestLabStart())
 
@@ -114,6 +116,7 @@ export const requestLab = (newLab: Lab, onSuccess?: (lab: Lab) => void): AppThun
   } else {
     newLab.status = 'requested'
     newLab.requestedOn = new Date(Date.now().valueOf()).toISOString()
+    newLab.requestedBy = getState().user.user?.id || ''
     const requestedLab = await LabRepository.save(newLab)
     dispatch(requestLabSuccess(requestedLab))
 
@@ -121,6 +124,12 @@ export const requestLab = (newLab: Lab, onSuccess?: (lab: Lab) => void): AppThun
       onSuccess(requestedLab)
     }
   }
+}
+
+export const resetLab = (): AppThunk => async (dispatch) => {
+  const labRequestError: Error = {}
+  dispatch(requestLabError(labRequestError))
+  dispatch(fetchLabStart())
 }
 
 export const cancelLab = (labToCancel: Lab, onSuccess?: (lab: Lab) => void): AppThunk => async (

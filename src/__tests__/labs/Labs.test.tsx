@@ -1,21 +1,22 @@
-import '../../__mocks__/matchMediaMock'
-import React from 'react'
-import { mount } from 'enzyme'
-import { MemoryRouter } from 'react-router'
-import { Provider } from 'react-redux'
-import thunk from 'redux-thunk'
-import configureMockStore from 'redux-mock-store'
 import { act } from '@testing-library/react'
-import Labs from 'labs/Labs'
-import NewLabRequest from 'labs/requests/NewLabRequest'
-import Permissions from 'model/Permissions'
-import ViewLab from 'labs/ViewLab'
-import LabRepository from 'clients/db/LabRepository'
-import Lab from 'model/Lab'
-import Patient from 'model/Patient'
-import PatientRepository from 'clients/db/PatientRepository'
+import { mount } from 'enzyme'
+import React from 'react'
+import { Provider } from 'react-redux'
+import { MemoryRouter } from 'react-router-dom'
+import createMockStore from 'redux-mock-store'
+import thunk from 'redux-thunk'
 
-const mockStore = configureMockStore([thunk])
+import Labs from '../../labs/Labs'
+import NewLabRequest from '../../labs/requests/NewLabRequest'
+import ViewLab from '../../labs/ViewLab'
+import LabRepository from '../../shared/db/LabRepository'
+import PatientRepository from '../../shared/db/PatientRepository'
+import Lab from '../../shared/model/Lab'
+import Patient from '../../shared/model/Patient'
+import Permissions from '../../shared/model/Permissions'
+import { RootState } from '../../shared/store'
+
+const mockStore = createMockStore<RootState, any>([thunk])
 
 describe('Labs', () => {
   jest.spyOn(LabRepository, 'findAll').mockResolvedValue([])
@@ -39,7 +40,7 @@ describe('Labs', () => {
             patient: { id: 'patientId', fullName: 'some name' },
             error: {},
           },
-        })
+        } as any)
 
         const wrapper = mount(
           <Provider store={store}>
@@ -58,7 +59,7 @@ describe('Labs', () => {
           user: { permissions: [] },
           breadcrumbs: { breadcrumbs: [] },
           components: { sidebarCollapsed: false },
-        })
+        } as any)
 
         const wrapper = mount(
           <Provider store={store}>
@@ -88,7 +89,7 @@ describe('Labs', () => {
             patient: { id: 'patientId', fullName: 'some name' },
             error: {},
           },
-        })
+        } as any)
 
         let wrapper: any
 
@@ -111,7 +112,7 @@ describe('Labs', () => {
           user: { permissions: [] },
           breadcrumbs: { breadcrumbs: [] },
           components: { sidebarCollapsed: false },
-        })
+        } as any)
 
         const wrapper = await mount(
           <Provider store={store}>

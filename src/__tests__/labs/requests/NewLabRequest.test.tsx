@@ -1,23 +1,24 @@
-import '../../../__mocks__/matchMediaMock'
-import React from 'react'
-import NewLabRequest from 'labs/requests/NewLabRequest'
-import TextFieldWithLabelFormGroup from 'components/input/TextFieldWithLabelFormGroup'
-import TextInputWithLabelFormGroup from 'components/input/TextInputWithLabelFormGroup'
-import { mount, ReactWrapper } from 'enzyme'
 import { Button, Typeahead, Label, Alert } from '@hospitalrun/components'
-import { Router } from 'react-router-dom'
-import { Provider } from 'react-redux'
-import configureMockStore from 'redux-mock-store'
-import thunk from 'redux-thunk'
+import { mount, ReactWrapper } from 'enzyme'
 import { createMemoryHistory } from 'history'
+import React from 'react'
 import { act } from 'react-dom/test-utils'
-import LabRepository from 'clients/db/LabRepository'
-import PatientRepository from 'clients/db/PatientRepository'
-import Lab from 'model/Lab'
-import Patient from 'model/Patient'
-import * as titleUtil from '../../../page-header/useTitle'
+import { Provider } from 'react-redux'
+import { Router } from 'react-router-dom'
+import createMockStore from 'redux-mock-store'
+import thunk from 'redux-thunk'
 
-const mockStore = configureMockStore([thunk])
+import NewLabRequest from '../../../labs/requests/NewLabRequest'
+import * as titleUtil from '../../../page-header/title/useTitle'
+import TextFieldWithLabelFormGroup from '../../../shared/components/input/TextFieldWithLabelFormGroup'
+import TextInputWithLabelFormGroup from '../../../shared/components/input/TextInputWithLabelFormGroup'
+import LabRepository from '../../../shared/db/LabRepository'
+import PatientRepository from '../../../shared/db/PatientRepository'
+import Lab from '../../../shared/model/Lab'
+import Patient from '../../../shared/model/Patient'
+import { RootState } from '../../../shared/store'
+
+const mockStore = createMockStore<RootState, any>([thunk])
 
 describe('New Lab Request', () => {
   describe('title and breadcrumbs', () => {
@@ -25,7 +26,7 @@ describe('New Lab Request', () => {
     const history = createMemoryHistory()
 
     beforeEach(() => {
-      const store = mockStore({ title: '', lab: { status: 'loading', error: {} } })
+      const store = mockStore({ title: '', lab: { status: 'loading', error: {} } } as any)
       titleSpy = jest.spyOn(titleUtil, 'default')
       history.push('/labs/new')
 
@@ -48,7 +49,7 @@ describe('New Lab Request', () => {
     const history = createMemoryHistory()
 
     beforeEach(() => {
-      const store = mockStore({ title: '', lab: { status: 'loading', error: {} } })
+      const store = mockStore({ title: '', lab: { status: 'loading', error: {} } } as any)
       history.push('/labs/new')
 
       wrapper = mount(
@@ -96,7 +97,7 @@ describe('New Lab Request', () => {
     it('should render a save button', () => {
       const saveButton = wrapper.find(Button).at(0)
       expect(saveButton).toBeDefined()
-      expect(saveButton.text().trim()).toEqual('actions.save')
+      expect(saveButton.text().trim()).toEqual('labs.requests.save')
     })
 
     it('should render a cancel button', () => {
@@ -117,7 +118,7 @@ describe('New Lab Request', () => {
 
     beforeEach(() => {
       history.push('/labs/new')
-      const store = mockStore({ title: '', lab: { status: 'error', error } })
+      const store = mockStore({ title: '', lab: { status: 'error', error } } as any)
       wrapper = mount(
         <Provider store={store}>
           <Router history={history}>
@@ -149,7 +150,7 @@ describe('New Lab Request', () => {
 
     beforeEach(() => {
       history.push('/labs/new')
-      const store = mockStore({ title: '', lab: { status: 'loading', error: {} } })
+      const store = mockStore({ title: '', lab: { status: 'loading', error: {} } } as any)
       wrapper = mount(
         <Provider store={store}>
           <Router history={history}>
@@ -177,7 +178,7 @@ describe('New Lab Request', () => {
     let labRepositorySaveSpy: any
     const expectedDate = new Date()
     const expectedLab = {
-      patientId: '12345',
+      patient: '12345',
       type: 'expected type',
       status: 'requested',
       notes: 'expected notes',
@@ -192,10 +193,14 @@ describe('New Lab Request', () => {
 
       jest
         .spyOn(PatientRepository, 'search')
-        .mockResolvedValue([{ id: expectedLab.patientId, fullName: 'some full name' }] as Patient[])
+        .mockResolvedValue([{ id: expectedLab.patient, fullName: 'some full name' }] as Patient[])
 
       history.push('/labs/new')
-      const store = mockStore({ title: '', lab: { status: 'loading', error: {} } })
+      const store = mockStore({
+        title: '',
+        lab: { status: 'loading', error: {} },
+        user: { user: { id: 'fake id' } },
+      } as any)
       wrapper = mount(
         <Provider store={store}>
           <Router history={history}>
@@ -209,7 +214,7 @@ describe('New Lab Request', () => {
       const patientTypeahead = wrapper.find(Typeahead)
       await act(async () => {
         const onChange = patientTypeahead.prop('onChange')
-        await onChange([{ id: expectedLab.patientId }] as Patient[])
+        await onChange([{ id: expectedLab.patient }] as Patient[])
       })
 
       const typeInput = wrapper.find(TextInputWithLabelFormGroup)
@@ -234,7 +239,7 @@ describe('New Lab Request', () => {
       expect(labRepositorySaveSpy).toHaveBeenCalledTimes(1)
       expect(labRepositorySaveSpy).toHaveBeenCalledWith(
         expect.objectContaining({
-          patientId: expectedLab.patientId,
+          patient: expectedLab.patient,
           type: expectedLab.type,
           notes: expectedLab.notes,
           status: 'requested',

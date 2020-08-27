@@ -6,6 +6,7 @@ module.exports = {
     'jest/globals': true,
   },
   extends: [
+    'react-app',
     'airbnb',
     'eslint:recommended',
     'plugin:@typescript-eslint/eslint-recommended',
@@ -21,21 +22,29 @@ module.exports = {
   },
   parser: '@typescript-eslint/parser',
   parserOptions: {
-    project: './tsconfig.json',
+    project: ['./tsconfig.json', './scripts/tsconfig.json'],
     tsconfigRootDir: './',
   },
   settings: {
     'import/resolver': {
       node: {
         extensions: ['.js', '.jsx', '.ts', '.tsx'],
+        moduleDirectory: ['node_modules'],
+      },
+      typescript: {
+        alwaysTryTypes: true,
       },
     },
+    'import/parsers': {
+      '@typescript-eslint/parser': ['.ts', '.tsx'],
+    },
   },
-  plugins: ['react', '@typescript-eslint', 'prettier', 'jest'],
+  plugins: ['react', '@typescript-eslint', 'prettier', 'jest', 'import'],
   rules: {
     'prettier/prettier': 'error',
     '@typescript-eslint/member-delimiter-style': 'off',
     '@typescript-eslint/explicit-function-return-type': 'off',
+    "@typescript-eslint/explicit-module-boundary-types": 'off',
     '@typescript-eslint/no-explicit-any': 'off',
     '@typescript-eslint/no-unused-vars': ['error', { ignoreRestSiblings: true }],
     '@typescript-eslint/unified-signatures': 'error',
@@ -47,12 +56,26 @@ module.exports = {
     'arrow-body-style': ['warn', 'as-needed'],
     'no-param-reassign': ['error', { props: false }],
     'import/prefer-default-export': 'off',
-    'no-console': 'off',
+    'import/no-cycle': 'off',
+    'no-console': 'error',
     'eol-last': ['error', 'always'],
     'no-debugger': 'error',
     'no-nested-ternary': 'off',
     'import/no-unresolved': 'off',
     'import/extensions': ['error', 'never'],
+    'import/order': [
+      'error',
+      {
+        groups: ['external', ['sibling', 'parent', 'internal'], 'builtin', 'unknown'],
+        'newlines-between': 'always',
+        alphabetize: {
+          order: 'asc',
+          caseInsensitive: true,
+        },
+      },
+    ],
     curly: ['error', 'all'],
+    'react/require-default-props': ['warn'],
+    'react/default-props-match-prop-types': ['warn']
   },
 }

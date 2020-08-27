@@ -1,33 +1,36 @@
-import React from 'react'
-import { Switch, Route } from 'react-router-dom'
-import { useSelector } from 'react-redux'
 import { Toaster } from '@hospitalrun/components'
-import Appointments from 'scheduling/appointments/Appointments'
-import NewAppointment from 'scheduling/appointments/new/NewAppointment'
-import EditAppointment from 'scheduling/appointments/edit/EditAppointment'
-import ViewAppointment from 'scheduling/appointments/view/ViewAppointment'
-import Breadcrumbs from 'breadcrumbs/Breadcrumbs'
-import { ButtonBarProvider } from 'page-header/ButtonBarProvider'
-import ButtonToolBar from 'page-header/ButtonToolBar'
-import Labs from 'labs/Labs'
-import Sidebar from './components/Sidebar'
-import Permissions from './model/Permissions'
+import React from 'react'
+import { useSelector } from 'react-redux'
+import { Redirect, Route, Switch } from 'react-router-dom'
+
 import Dashboard from './dashboard/Dashboard'
-import Patients from './patients/list/Patients'
-import NewPatient from './patients/new/NewPatient'
-import EditPatient from './patients/edit/EditPatient'
-import ViewPatient from './patients/view/ViewPatient'
-import { RootState } from './store'
-import Navbar from './components/Navbar'
-import PrivateRoute from './components/PrivateRoute'
+import Imagings from './imagings/Imagings'
+import Incidents from './incidents/Incidents'
+import Labs from './labs/Labs'
+import Medications from './medications/Medications'
+import Breadcrumbs from './page-header/breadcrumbs/Breadcrumbs'
+import { ButtonBarProvider } from './page-header/button-toolbar/ButtonBarProvider'
+import ButtonToolBar from './page-header/button-toolbar/ButtonToolBar'
+import Patients from './patients/Patients'
+import Appointments from './scheduling/appointments/Appointments'
+import Settings from './settings/Settings'
+import Navbar from './shared/components/navbar/Navbar'
+import { NetworkStatusMessage } from './shared/components/network-status'
+import Sidebar from './shared/components/Sidebar'
+import { RootState } from './shared/store'
 
 const HospitalRun = () => {
   const { title } = useSelector((state: RootState) => state.title)
-  const { permissions } = useSelector((state: RootState) => state.user)
   const { sidebarCollapsed } = useSelector((state: RootState) => state.components)
+  const { user } = useSelector((root: RootState) => root.user)
+
+  if (user === undefined) {
+    return <Redirect to="/login" />
+  }
 
   return (
     <div>
+      <NetworkStatusMessage />
       <Navbar />
       <div className="container-fluid">
         <Sidebar />
@@ -47,60 +50,13 @@ const HospitalRun = () => {
               <div>
                 <Switch>
                   <Route exact path="/" component={Dashboard} />
-                  <PrivateRoute
-                    isAuthenticated={permissions.includes(Permissions.ReadPatients)}
-                    exact
-                    path="/patients"
-                    component={Patients}
-                  />
-                  <PrivateRoute
-                    isAuthenticated={permissions.includes(Permissions.WritePatients)}
-                    exact
-                    path="/patients/new"
-                    component={NewPatient}
-                  />
-                  <PrivateRoute
-                    isAuthenticated={
-                      permissions.includes(Permissions.WritePatients) &&
-                      permissions.includes(Permissions.ReadPatients)
-                    }
-                    exact
-                    path="/patients/edit/:id"
-                    component={EditPatient}
-                  />
-                  <PrivateRoute
-                    isAuthenticated={permissions.includes(Permissions.ReadPatients)}
-                    path="/patients/:id"
-                    component={ViewPatient}
-                  />
-                  <PrivateRoute
-                    isAuthenticated={permissions.includes(Permissions.ReadAppointments)}
-                    exact
-                    path="/appointments"
-                    component={Appointments}
-                  />
-                  <PrivateRoute
-                    isAuthenticated={permissions.includes(Permissions.WriteAppointments)}
-                    exact
-                    path="/appointments/new"
-                    component={NewAppointment}
-                  />
-                  <PrivateRoute
-                    isAuthenticated={
-                      permissions.includes(Permissions.WriteAppointments) &&
-                      permissions.includes(Permissions.ReadAppointments)
-                    }
-                    exact
-                    path="/appointments/edit/:id"
-                    component={EditAppointment}
-                  />
-                  <PrivateRoute
-                    isAuthenticated={permissions.includes(Permissions.ReadAppointments)}
-                    exact
-                    path="/appointments/:id"
-                    component={ViewAppointment}
-                  />
-                  <PrivateRoute isAuthenticated path="/labs" component={Labs} />
+                  <Route path="/appointments" component={Appointments} />
+                  <Route path="/patients" component={Patients} />
+                  <Route path="/labs" component={Labs} />
+                  <Route path="/medications" component={Medications} />
+                  <Route path="/incidents" component={Incidents} />
+                  <Route path="/settings" component={Settings} />
+                  <Route path="/imaging" component={Imagings} />
                 </Switch>
               </div>
               <Toaster autoClose={5000} hideProgressBar draggable />

@@ -1,24 +1,23 @@
-import '../../../__mocks__/matchMediaMock'
-import React from 'react'
-import { mount } from 'enzyme'
-import { Router, Route } from 'react-router-dom'
-import { Provider } from 'react-redux'
-import { mocked } from 'ts-jest/utils'
-import { createMemoryHistory } from 'history'
-import { act } from 'react-dom/test-utils'
-import configureMockStore, { MockStore } from 'redux-mock-store'
-import thunk from 'redux-thunk'
 import * as components from '@hospitalrun/components'
+import { mount } from 'enzyme'
+import { createMemoryHistory } from 'history'
+import React from 'react'
+import { act } from 'react-dom/test-utils'
+import { Provider } from 'react-redux'
+import { Router, Route } from 'react-router-dom'
+import createMockStore, { MockStore } from 'redux-mock-store'
+import thunk from 'redux-thunk'
+import { mocked } from 'ts-jest/utils'
 
-import { addDays, endOfToday } from 'date-fns'
-import NewPatient from '../../../patients/new/NewPatient'
+import * as titleUtil from '../../../page-header/title/useTitle'
 import GeneralInformation from '../../../patients/GeneralInformation'
-import Patient from '../../../model/Patient'
+import NewPatient from '../../../patients/new/NewPatient'
 import * as patientSlice from '../../../patients/patient-slice'
-import * as titleUtil from '../../../page-header/useTitle'
-import PatientRepository from '../../../clients/db/PatientRepository'
+import PatientRepository from '../../../shared/db/PatientRepository'
+import Patient from '../../../shared/model/Patient'
+import { RootState } from '../../../shared/store'
 
-const mockStore = configureMockStore([thunk])
+const mockStore = createMockStore<RootState, any>([thunk])
 
 describe('New Patient', () => {
   const patient = {
@@ -29,13 +28,13 @@ describe('New Patient', () => {
   let history: any
   let store: MockStore
 
-  const setup = () => {
+  const setup = (error?: any) => {
     jest.spyOn(PatientRepository, 'save')
     const mockedPatientRepository = mocked(PatientRepository, true)
     mockedPatientRepository.save.mockResolvedValue(patient)
 
     history = createMemoryHistory()
-    store = mockStore({ patient: { patient: {} as Patient } })
+    store = mockStore({ patient: { patient: {} as Patient, createError: error } } as any)
 
     history.push('/patients/new')
     const wrapper = mount(
@@ -74,69 +73,16 @@ describe('New Patient', () => {
     expect(titleUtil.default).toHaveBeenCalledWith('patients.newPatient')
   })
 
-  it('should pass no given name error when form doesnt contain a given name on save button click', async () => {
+  it('should pass the error object to general information', async () => {
+    const expectedError = { message: 'some message' }
     let wrapper: any
     await act(async () => {
-      wrapper = await setup()
+      wrapper = await setup(expectedError)
     })
-
-    const givenName = wrapper.findWhere((w: any) => w.prop('name') === 'givenName')
-    expect(givenName.prop('value')).toBe('')
+    wrapper.update()
 
     const generalInformationForm = wrapper.find(GeneralInformation)
-    expect(generalInformationForm.prop('errorMessage')).toBe('')
-
-    const saveButton = wrapper.find(components.Button).at(0)
-    const onClick = saveButton.prop('onClick') as any
-    expect(saveButton.text().trim()).toEqual('actions.save')
-
-    act(() => {
-      onClick()
-    })
-
-    wrapper.update()
-    expect(wrapper.find(GeneralInformation).prop('errorMessage')).toMatch(
-      'patient.errors.createPatientError',
-    )
-    expect(wrapper.find(GeneralInformation).prop('feedbackFields').givenName).toMatch(
-      'patient.errors.patientGivenNameFeedback',
-    )
-    expect(wrapper.update.isInvalid === true)
-  })
-
-  it('should pass invalid date of birth error when input date is grater than today on save button click', async () => {
-    let wrapper: any
-    await act(async () => {
-      wrapper = await setup()
-    })
-
-    const generalInformationForm = wrapper.find(GeneralInformation)
-
-    act(() => {
-      generalInformationForm.prop('onFieldChange')(
-        'dateOfBirth',
-        addDays(endOfToday(), 10).toISOString(),
-      )
-    })
-
-    wrapper.update()
-
-    const saveButton = wrapper.find(components.Button).at(0)
-    const onClick = saveButton.prop('onClick') as any
-    expect(saveButton.text().trim()).toEqual('actions.save')
-
-    await act(async () => {
-      await onClick()
-    })
-
-    wrapper.update()
-    expect(wrapper.find(GeneralInformation).prop('errorMessage')).toMatch(
-      'patient.errors.createPatientError',
-    )
-    expect(wrapper.find(GeneralInformation).prop('feedbackFields').dateOfBirth).toMatch(
-      'patient.errors.patientDateOfBirthFeedback',
-    )
-    expect(wrapper.update.isInvalid === true)
+    expect(generalInformationForm.prop('error')).toEqual(expectedError)
   })
 
   it('should dispatch createPatient when save button is clicked', async () => {
@@ -148,12 +94,12 @@ describe('New Patient', () => {
     const generalInformationForm = wrapper.find(GeneralInformation)
 
     act(() => {
-      generalInformationForm.prop('onFieldChange')('givenName', 'first')
+      generalInformationForm.prop('onChange')(patient)
     })
 
     wrapper.update()
 
-    const saveButton = wrapper.find(components.Button).at(0)
+    const saveButton = wrapper.find('.btn-save').at(0)
     const onClick = saveButton.prop('onClick') as any
     expect(saveButton.text().trim()).toEqual('actions.save')
 
@@ -164,6 +110,24 @@ describe('New Patient', () => {
     expect(PatientRepository.save).toHaveBeenCalledWith(patient)
     expect(store.getActions()).toContainEqual(patientSlice.createPatientStart())
     expect(store.getActions()).toContainEqual(patientSlice.createPatientSuccess())
+  })
+
+  it('should reveal modal (return true) when save button is clicked if an existing patient has the same information', async () => {
+    let wrapper: any
+    await act(async () => {
+      wrapper = await setup()
+    })
+
+    const saveButton = wrapper.find('.btn-save').at(0)
+    const onClick = saveButton.prop('onClick') as any
+    expect(saveButton.text().trim()).toEqual('actions.save')
+
+    act(() => {
+      onClick()
+    })
+    wrapper.update()
+
+    expect(onClick()).toEqual(true)
   })
 
   it('should navigate to /patients/:id and display a message after a new patient is successfully created', async () => {
@@ -177,12 +141,12 @@ describe('New Patient', () => {
     const generalInformationForm = wrapper.find(GeneralInformation)
 
     act(() => {
-      generalInformationForm.prop('onFieldChange')('givenName', 'first')
+      generalInformationForm.prop('onChange')(patient)
     })
 
     wrapper.update()
 
-    const saveButton = wrapper.find(components.Button).at(0)
+    const saveButton = wrapper.find('.btn-save').at(0)
     const onClick = saveButton.prop('onClick') as any
     expect(saveButton.text().trim()).toEqual('actions.save')
 
@@ -204,7 +168,7 @@ describe('New Patient', () => {
       wrapper = await setup()
     })
 
-    const cancelButton = wrapper.find(components.Button).at(1)
+    const cancelButton = wrapper.find('.btn-cancel').at(0)
     const onClick = cancelButton.prop('onClick') as any
     expect(cancelButton.text().trim()).toEqual('actions.cancel')
 

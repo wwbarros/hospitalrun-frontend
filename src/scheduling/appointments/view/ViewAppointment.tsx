@@ -1,24 +1,25 @@
-import React, { useEffect, useState } from 'react'
-import useTitle from 'page-header/useTitle'
-import { useSelector, useDispatch } from 'react-redux'
-import { RootState } from 'store'
-import { useParams, useHistory } from 'react-router'
 import { Spinner, Button, Modal, Toast } from '@hospitalrun/components'
-import { useTranslation } from 'react-i18next'
-import { useButtonToolbarSetter } from 'page-header/ButtonBarProvider'
-import Permissions from 'model/Permissions'
+import React, { useEffect, useState } from 'react'
+import { useSelector, useDispatch } from 'react-redux'
+import { useParams, useHistory } from 'react-router-dom'
+
+import useAddBreadcrumbs from '../../../page-header/breadcrumbs/useAddBreadcrumbs'
+import { useButtonToolbarSetter } from '../../../page-header/button-toolbar/ButtonBarProvider'
+import useTitle from '../../../page-header/title/useTitle'
+import useTranslator from '../../../shared/hooks/useTranslator'
+import Permissions from '../../../shared/model/Permissions'
+import { RootState } from '../../../shared/store'
 import { fetchAppointment, deleteAppointment } from '../appointment-slice'
 import AppointmentDetailForm from '../AppointmentDetailForm'
 import { getAppointmentLabel } from '../util/scheduling-appointment.util'
-import useAddBreadcrumbs from '../../../breadcrumbs/useAddBreadcrumbs'
 
 const ViewAppointment = () => {
-  const { t } = useTranslation()
+  const { t } = useTranslator()
   useTitle(t('scheduling.appointments.viewAppointment'))
   const dispatch = useDispatch()
   const { id } = useParams()
   const history = useHistory()
-  const { appointment, patient, isLoading } = useSelector((state: RootState) => state.appointment)
+  const { appointment, patient, status } = useSelector((state: RootState) => state.appointment)
   const { permissions } = useSelector((state: RootState) => state.user)
   const [showDeleteConfirmation, setShowDeleteConfirmation] = useState<boolean>(false)
   const setButtonToolBar = useButtonToolbarSetter()
@@ -88,7 +89,7 @@ const ViewAppointment = () => {
     }
   }, [dispatch, id, setButtonToolBar])
 
-  if (!appointment.id || isLoading) {
+  if (status === 'loading') {
     return <Spinner type="BarLoader" loading />
   }
 

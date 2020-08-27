@@ -1,30 +1,31 @@
-import '../../../../__mocks__/matchMediaMock'
-import React from 'react'
+import { Button } from '@hospitalrun/components'
+import { roundToNearestMinutes, addMinutes } from 'date-fns'
 import { mount } from 'enzyme'
-import { Router, Route } from 'react-router-dom'
-import { Provider } from 'react-redux'
-import { mocked } from 'ts-jest/utils'
 import { createMemoryHistory } from 'history'
+import React from 'react'
 import { act } from 'react-dom/test-utils'
-import configureMockStore, { MockStore } from 'redux-mock-store'
+import { Provider } from 'react-redux'
+import { Router, Route } from 'react-router-dom'
+import createMockStore, { MockStore } from 'redux-mock-store'
 import thunk from 'redux-thunk'
-import { roundToNearestMinutes, addMinutes, subDays } from 'date-fns'
-import { Button, Alert } from '@hospitalrun/components'
-import EditAppointment from '../../../../scheduling/appointments/edit/EditAppointment'
-import AppointmentDetailForm from '../../../../scheduling/appointments/AppointmentDetailForm'
-import Appointment from '../../../../model/Appointment'
-import Patient from '../../../../model/Patient'
-import * as titleUtil from '../../../../page-header/useTitle'
-import * as appointmentSlice from '../../../../scheduling/appointments/appointment-slice'
-import AppointmentRepository from '../../../../clients/db/AppointmentRepository'
-import PatientRepository from '../../../../clients/db/PatientRepository'
+import { mocked } from 'ts-jest/utils'
 
-const mockStore = configureMockStore([thunk])
+import * as titleUtil from '../../../../page-header/title/useTitle'
+import * as appointmentSlice from '../../../../scheduling/appointments/appointment-slice'
+import AppointmentDetailForm from '../../../../scheduling/appointments/AppointmentDetailForm'
+import EditAppointment from '../../../../scheduling/appointments/edit/EditAppointment'
+import AppointmentRepository from '../../../../shared/db/AppointmentRepository'
+import PatientRepository from '../../../../shared/db/PatientRepository'
+import Appointment from '../../../../shared/model/Appointment'
+import Patient from '../../../../shared/model/Patient'
+import { RootState } from '../../../../shared/store'
+
+const mockStore = createMockStore<RootState, any>([thunk])
 
 describe('Edit Appointment', () => {
   const appointment = {
     id: '123',
-    patientId: '456',
+    patient: '456',
     startDateTime: roundToNearestMinutes(new Date(), { nearestTo: 15 }).toISOString(),
     endDateTime: addMinutes(roundToNearestMinutes(new Date(), { nearestTo: 15 }), 60).toISOString(),
     location: 'location',
@@ -66,7 +67,7 @@ describe('Edit Appointment', () => {
     mockedPatientRepository.find.mockResolvedValue(patient)
 
     history = createMemoryHistory()
-    store = mockStore({ appointment: { appointment, patient } })
+    store = mockStore({ appointment: { appointment, patient } } as any)
 
     history.push('/appointments/edit/123')
     const wrapper = mount(
@@ -104,7 +105,7 @@ describe('Edit Appointment', () => {
     })
 
     expect(AppointmentRepository.find).toHaveBeenCalledWith(appointment.id)
-    expect(PatientRepository.find).toHaveBeenCalledWith(appointment.patientId)
+    expect(PatientRepository.find).toHaveBeenCalledWith(appointment.patient)
     expect(store.getActions()).toContainEqual(appointmentSlice.fetchAppointmentStart())
     expect(store.getActions()).toContainEqual(
       appointmentSlice.fetchAppointmentSuccess({ appointment, patient }),
@@ -117,48 +118,6 @@ describe('Edit Appointment', () => {
       await setup()
     })
     expect(titleUtil.default).toHaveBeenCalledWith('scheduling.appointments.editAppointment')
-  })
-
-  it('should display an error if the end date is before the start date', async () => {
-    let wrapper: any
-    await act(async () => {
-      wrapper = await setup()
-    })
-
-    const startDateTime = roundToNearestMinutes(new Date(), { nearestTo: 15 })
-    const endDateTime = subDays(startDateTime, 1)
-
-    wrapper.update()
-
-    act(() => {
-      const appointmentDetailForm = wrapper.find(AppointmentDetailForm)
-      const onFieldChange = appointmentDetailForm.prop('onFieldChange')
-      onFieldChange('startDateTime', startDateTime)
-    })
-
-    wrapper.update()
-
-    act(() => {
-      const appointmentDetailForm = wrapper.find(AppointmentDetailForm)
-      const onFieldChange = appointmentDetailForm.prop('onFieldChange')
-      onFieldChange('endDateTime', endDateTime)
-    })
-
-    wrapper.update()
-
-    act(() => {
-      const saveButton = wrapper.find(Button).at(0)
-      const onClick = saveButton.prop('onClick') as any
-      onClick()
-    })
-
-    wrapper.update()
-
-    const alert = wrapper.find(Alert)
-    expect(alert).toHaveLength(1)
-    expect(alert.prop('message')).toEqual(
-      'scheduling.appointment.errors.startDateMustBeBeforeEndDate',
-    )
   })
 
   it('should dispatch updateAppointment when save button is clicked', async () => {

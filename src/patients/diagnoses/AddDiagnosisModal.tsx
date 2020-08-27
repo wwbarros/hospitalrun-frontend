@@ -1,87 +1,53 @@
+import { Modal } from '@hospitalrun/components'
 import React, { useState, useEffect } from 'react'
-import { Modal, Alert } from '@hospitalrun/components'
-import { useTranslation } from 'react-i18next'
-import Diagnosis from 'model/Diagnosis'
-import TextInputWithLabelFormGroup from 'components/input/TextInputWithLabelFormGroup'
-import DatePickerWithLabelFormGroup from 'components/input/DatePickerWithLabelFormGroup'
+import { useDispatch, useSelector } from 'react-redux'
+
+import useTranslator from '../../shared/hooks/useTranslator'
+import Diagnosis from '../../shared/model/Diagnosis'
+import { RootState } from '../../shared/store'
+import { addDiagnosis } from '../patient-slice'
+import DiagnosisForm from './DiagnosisForm'
 
 interface Props {
   show: boolean
   onCloseButtonClick: () => void
-  onSave: (diagnosis: Diagnosis) => void
+}
+
+const initialDiagnosisState = {
+  name: '',
+  diagnosisDate: new Date().toISOString(),
+  onsetDate: new Date().toISOString(),
+  abatementDate: new Date().toISOString(),
+  note: '',
+  visit: '',
 }
 
 const AddDiagnosisModal = (props: Props) => {
-  const { show, onCloseButtonClick, onSave } = props
-  const [diagnosis, setDiagnosis] = useState({ name: '', diagnosisDate: new Date().toISOString() })
-  const [errorMessage, setErrorMessage] = useState('')
+  const { show, onCloseButtonClick } = props
+  const dispatch = useDispatch()
+  const { diagnosisError, patient } = useSelector((state: RootState) => state.patient)
+  const { t } = useTranslator()
 
-  const { t } = useTranslation()
+  const [diagnosis, setDiagnosis] = useState(initialDiagnosisState)
 
   useEffect(() => {
-    setErrorMessage('')
-    setDiagnosis({ name: '', diagnosisDate: new Date().toISOString() })
+    setDiagnosis(initialDiagnosisState)
   }, [show])
 
+  const onDiagnosisChange = (newDiagnosis: Partial<Diagnosis>) => {
+    setDiagnosis(newDiagnosis as Diagnosis)
+  }
   const onSaveButtonClick = () => {
-    let newErrorMessage = ''
-    if (!diagnosis.name) {
-      newErrorMessage += t('patient.diagnoses.error.nameRequired')
-    }
-    setErrorMessage(newErrorMessage)
-
-    if (!newErrorMessage) {
-      onSave(diagnosis as Diagnosis)
-    }
-  }
-
-  const onNameChange = (event: React.ChangeEvent<HTMLInputElement>) => {
-    const name = event.target.value
-    setDiagnosis((prevDiagnosis) => ({ ...prevDiagnosis, name }))
-  }
-
-  const onDiagnosisDateChange = (diagnosisDate: Date) => {
-    if (diagnosisDate) {
-      setDiagnosis((prevDiagnosis) => ({
-        ...prevDiagnosis,
-        diagnosisDate: diagnosisDate.toISOString(),
-      }))
-    }
+    dispatch(addDiagnosis(patient.id, diagnosis as Diagnosis))
   }
 
   const body = (
-    <>
-      <form>
-        {errorMessage && <Alert color="danger" title={t('states.error')} message={errorMessage} />}
-        <div className="row">
-          <div className="col-md-12">
-            <div className="form-group">
-              <TextInputWithLabelFormGroup
-                name="name"
-                label={t('patient.diagnoses.diagnosisName')}
-                isEditable
-                placeholder={t('patient.diagnoses.diagnosisName')}
-                value={diagnosis.name}
-                onChange={onNameChange}
-                isRequired
-              />
-            </div>
-          </div>
-        </div>
-        <div className="row">
-          <div className="col-md-12">
-            <DatePickerWithLabelFormGroup
-              name="diagnosisDate"
-              label={t('patient.diagnoses.diagnosisDate')}
-              value={new Date(diagnosis.diagnosisDate)}
-              isEditable
-              onChange={onDiagnosisDateChange}
-              isRequired
-            />
-          </div>
-        </div>
-      </form>
-    </>
+    <DiagnosisForm
+      diagnosis={diagnosis}
+      diagnosisError={diagnosisError}
+      onChange={onDiagnosisChange}
+      patient={patient}
+    />
   )
   return (
     <Modal

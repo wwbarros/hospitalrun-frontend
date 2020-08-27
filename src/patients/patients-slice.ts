@@ -1,16 +1,20 @@
 import { createSlice, PayloadAction } from '@reduxjs/toolkit'
-import Patient from '../model/Patient'
-import PatientRepository from '../clients/db/PatientRepository'
-import { AppThunk } from '../store'
+
+import PatientRepository from '../shared/db/PatientRepository'
+import SortRequest, { Unsorted } from '../shared/db/SortRequest'
+import Patient from '../shared/model/Patient'
+import { AppThunk } from '../shared/store'
 
 interface PatientsState {
   isLoading: boolean
   patients: Patient[]
+  count: number
 }
 
 const initialState: PatientsState = {
   isLoading: false,
   patients: [],
+  count: 0,
 }
 
 function startLoading(state: PatientsState) {
@@ -26,13 +30,19 @@ const patientsSlice = createSlice({
       state.isLoading = false
       state.patients = payload
     },
+    fetchCountSuccess(state, { payload }: PayloadAction<number>) {
+      state.count = payload
+    },
   },
 })
-export const { fetchPatientsStart, fetchPatientsSuccess } = patientsSlice.actions
 
-export const fetchPatients = (): AppThunk => async (dispatch) => {
+export const { fetchPatientsStart, fetchPatientsSuccess, fetchCountSuccess } = patientsSlice.actions
+
+export const fetchPatients = (sortRequest: SortRequest = Unsorted): AppThunk => async (
+  dispatch,
+) => {
   dispatch(fetchPatientsStart())
-  const patients = await PatientRepository.findAll()
+  const patients = await PatientRepository.findAll(sortRequest)
   dispatch(fetchPatientsSuccess(patients))
 }
 
@@ -45,7 +55,8 @@ export const searchPatients = (searchString: string): AppThunk => async (dispatc
   } else {
     patients = await PatientRepository.search(searchString)
   }
-
+  const count = await PatientRepository.count()
+  dispatch(fetchCountSuccess(count))
   dispatch(fetchPatientsSuccess(patients))
 }
 

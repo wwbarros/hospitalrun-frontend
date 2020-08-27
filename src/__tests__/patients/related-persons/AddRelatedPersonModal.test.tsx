@@ -1,16 +1,19 @@
-import '../../../__mocks__/matchMediaMock'
-import React from 'react'
-import { ReactWrapper, mount } from 'enzyme'
 import { Modal, Alert, Typeahead } from '@hospitalrun/components'
 import { act } from '@testing-library/react'
+import { ReactWrapper, mount } from 'enzyme'
+import React from 'react'
 import { Provider } from 'react-redux'
+import createMockStore, { MockStore } from 'redux-mock-store'
 import thunk from 'redux-thunk'
-import configureMockStore, { MockStore } from 'redux-mock-store'
-import Patient from 'model/Patient'
-import TextInputWithLabelFormGroup from '../../../components/input/TextInputWithLabelFormGroup'
-import AddRelatedPersonModal from '../../../patients/related-persons/AddRelatedPersonModal'
 
-const mockStore = configureMockStore([thunk])
+import * as patientSlice from '../../../patients/patient-slice'
+import AddRelatedPersonModal from '../../../patients/related-persons/AddRelatedPersonModal'
+import TextInputWithLabelFormGroup from '../../../shared/components/input/TextInputWithLabelFormGroup'
+import PatientRepository from '../../../shared/db/PatientRepository'
+import Patient from '../../../shared/model/Patient'
+import { RootState } from '../../../shared/store'
+
+const mockStore = createMockStore<RootState, any>([thunk])
 
 describe('Add Related Person Modal', () => {
   const patient = {
@@ -37,16 +40,14 @@ describe('Add Related Person Modal', () => {
 
     store = mockStore({
       patient: { patient },
-    })
+    } as any)
     beforeEach(() => {
+      jest.spyOn(PatientRepository, 'find').mockResolvedValue(patient)
+      jest.spyOn(PatientRepository, 'saveOrUpdate').mockResolvedValue(patient)
+
       wrapper = mount(
         <Provider store={store}>
-          <AddRelatedPersonModal
-            show
-            onSave={jest.fn()}
-            onCloseButtonClick={jest.fn()}
-            toggle={jest.fn()}
-          />
+          <AddRelatedPersonModal show onCloseButtonClick={jest.fn()} toggle={jest.fn()} />
         </Provider>,
       )
     })
@@ -85,24 +86,52 @@ describe('Add Related Person Modal', () => {
     })
 
     it('should render an add new related person button button', () => {
-      const modal = wrapper.find(Modal)
+      const modal = wrapper.find(Modal) as any
       expect(modal.prop('successButton').children).toEqual('patient.relatedPersons.add')
+    })
+
+    it('should render the error', () => {
+      const expectedError = {
+        message: 'some message',
+        relatedPerson: 'some related person error',
+        relationshipType: 'some relationship type error',
+      }
+      store = mockStore({
+        patient: {
+          patient,
+          relatedPersonError: expectedError,
+        },
+      } as any)
+      wrapper = mount(
+        <Provider store={store}>
+          <AddRelatedPersonModal show onCloseButtonClick={jest.fn()} toggle={jest.fn()} />
+        </Provider>,
+      )
+
+      const alert = wrapper.find(Alert)
+      const typeahead = wrapper.find(Typeahead)
+      const relationshipTypeInput = wrapper.find(TextInputWithLabelFormGroup)
+
+      expect(alert.prop('message')).toEqual(expectedError.message)
+      expect(alert.prop('title')).toEqual('states.error')
+      expect(typeahead.prop('isInvalid')).toBeTruthy()
+      expect(relationshipTypeInput.prop('isInvalid')).toBeTruthy()
+      expect(relationshipTypeInput.prop('feedback')).toEqual(expectedError.relationshipType)
     })
   })
 
   describe('save', () => {
+    jest.spyOn(patientSlice, 'addRelatedPerson')
     let wrapper: ReactWrapper
-    let onSaveSpy = jest.fn()
+    store = mockStore({
+      patient: {
+        patient,
+      },
+    } as any)
     beforeEach(() => {
-      onSaveSpy = jest.fn()
       wrapper = mount(
         <Provider store={store}>
-          <AddRelatedPersonModal
-            show
-            onSave={onSaveSpy}
-            onCloseButtonClick={jest.fn()}
-            toggle={jest.fn()}
-          />
+          <AddRelatedPersonModal show onCloseButtonClick={jest.fn()} toggle={jest.fn()} />
         </Provider>,
       )
     })
@@ -125,62 +154,10 @@ describe('Add Related Person Modal', () => {
         onClick({} as React.MouseEvent<HTMLButtonElement, MouseEvent>)
       })
 
-      expect(onSaveSpy).toHaveBeenCalledTimes(1)
-      expect(onSaveSpy).toHaveBeenCalledWith({
+      expect(patientSlice.addRelatedPerson).toHaveBeenCalledWith(patient.id, {
         patientId: '123',
         type: 'relationship',
       })
-    })
-
-    it('should display an error message if given name is not entered', () => {
-      act(() => {
-        const patientTypeahead = wrapper.find(Typeahead)
-        patientTypeahead.prop('onChange')([{ id: '123' }])
-      })
-      wrapper.update()
-
-      act(() => {
-        wrapper
-          .find(Modal)
-          .prop('successButton')
-          .onClick({} as React.MouseEvent<HTMLButtonElement, MouseEvent>)
-      })
-
-      wrapper.update()
-
-      const errorAlert = wrapper.find(Alert)
-      const relationshipTypeTextInput = wrapper.findWhere((w: any) => w.prop('name') === 'type')
-      expect(errorAlert).toHaveLength(1)
-      expect(errorAlert.prop('message')).toEqual(
-        'patient.relatedPersons.error.unableToAddRelatedPerson',
-      )
-      expect(relationshipTypeTextInput.prop('isInvalid')).toBeTruthy()
-      expect(relationshipTypeTextInput.prop('feedback')).toEqual(
-        'patient.relatedPersons.error.relationshipTypeRequired',
-      )
-    })
-
-    it('should display an error message if relationship type is not entered', () => {
-      act(() => {
-        wrapper
-          .find(Modal)
-          .prop('successButton')
-          .onClick({} as React.MouseEvent<HTMLButtonElement, MouseEvent>)
-      })
-
-      wrapper.update()
-
-      const errorAlert = wrapper.find(Alert)
-      const typeahead = wrapper.find(Typeahead)
-      const typeaheadError = wrapper.find('.related-person-feedback')
-      expect(errorAlert).toHaveLength(1)
-      expect(errorAlert.prop('message')).toEqual(
-        'patient.relatedPersons.error.unableToAddRelatedPerson',
-      )
-      expect(typeahead.prop('isInvalid')).toBeTruthy()
-      expect(typeaheadError.text().trim()).toEqual(
-        'patient.relatedPersons.error.relatedPersonRequired',
-      )
     })
   })
 })
